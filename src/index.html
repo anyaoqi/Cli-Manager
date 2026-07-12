@@ -12,76 +12,60 @@
         <div class="logo">≡</div>
         <div>
           <h1>右键菜单管理</h1>
-          <p class="sub">扫描、配置并一键写入 Windows 右键菜单</p>
+          <p class="sub">查看并管理 Windows 右键菜单里的所有快捷启动方式</p>
         </div>
       </div>
       <div class="actions">
-        <button id="btn-scan" class="btn">扫描工具</button>
-        <button id="btn-add" class="btn">+ 添加自定义</button>
-        <button id="btn-remove" class="btn btn-ghost">全部移除</button>
-        <button id="btn-apply" class="btn btn-primary">应用到右键菜单</button>
+        <button id="btn-refresh" class="btn">刷新</button>
+        <button id="btn-scan" class="btn">扫描已装工具</button>
+        <button id="btn-add" class="btn btn-primary">+ 新增启动项</button>
+        <button id="btn-restart-explorer" class="btn btn-ghost" title="菜单未刷新时重启资源管理器">重启资源管理器</button>
       </div>
     </header>
 
     <section class="settings">
-      <div class="field">
-        <label>父菜单名称</label>
-        <input id="parent-label" type="text" placeholder="在此打开" />
-      </div>
-      <div class="field">
-        <label>终端（CLI 工具）</label>
-        <select id="terminal"></select>
-      </div>
-      <div class="field grow">
-        <label>默认显示位置</label>
-        <div class="pos-group" id="global-positions">
-          <label><input type="checkbox" value="background" /> 文件夹空白处</label>
-          <label><input type="checkbox" value="folder" /> 右击文件夹本身</label>
-          <label><input type="checkbox" value="desktop" /> 桌面空白处</label>
-        </div>
-      </div>
-      <div class="field">
-        <label>配置管理</label>
-        <div class="pos-group">
-          <button id="btn-import" class="btn btn-sm" title="从 JSON 文件导入配置">导入配置</button>
-          <button id="btn-export" class="btn btn-sm" title="导出当前配置为 JSON 文件">导出配置</button>
-          <button id="btn-restart-explorer" class="btn btn-sm btn-ghost" title="菜单未刷新时重启资源管理器">重启资源管理器</button>
-        </div>
+      <div class="filter-tabs" id="location-tabs">
+        <button type="button" class="tab active" data-loc="">全部</button>
+        <button type="button" class="tab" data-loc="background">文件夹空白</button>
+        <button type="button" class="tab" data-loc="folder">文件夹</button>
+        <button type="button" class="tab" data-loc="drive">磁盘</button>
       </div>
     </section>
 
     <main>
       <div id="empty" class="empty hidden">
-        还没有菜单项。点击「扫描工具」自动发现，或「添加自定义」手动添加。
+        没有找到右键菜单启动项。点击「扫描已装工具」快速添加，或「新增启动项」手动添加。
       </div>
       <ul id="item-list" class="item-list"></ul>
     </main>
 
     <footer class="statusbar">
       <span id="status">就绪</span>
-      <span class="hint">提示：Windows 11 下菜单项位于「显示更多选项 / Shift+F10」中</span>
+      <span class="hint">提示：Windows 11 下菜单项位于「显示更多选项 / Shift+F10」中；本机(HKLM)项需管理员权限修改</span>
     </footer>
 
-    <!-- 扫描结果弹层 -->
+    <!-- 扫描已装工具弹层 -->
     <div id="scan-modal" class="modal hidden">
       <div class="modal-card">
         <div class="modal-head">
-          <h2>扫描到的工具</h2>
+          <h2>扫描到的已安装工具</h2>
           <button class="x" data-close>×</button>
         </div>
         <div id="scan-body" class="modal-body"></div>
         <div class="modal-foot">
+          <label class="foot-term">终端(CLI) <select id="scan-terminal"></select></label>
+          <span class="muted">将添加到「文件夹空白处 + 文件夹本身」</span>
           <button class="btn" data-close>取消</button>
           <button id="scan-add" class="btn btn-primary">添加所选</button>
         </div>
       </div>
     </div>
 
-    <!-- 自定义 / 编辑表单 -->
+    <!-- 新增启动项表单 -->
     <div id="edit-modal" class="modal hidden">
       <div class="modal-card">
         <div class="modal-head">
-          <h2 id="edit-title">添加自定义菜单</h2>
+          <h2>新增右键启动项</h2>
           <button class="x" data-close>×</button>
         </div>
         <div class="modal-body">
@@ -95,6 +79,10 @@
               <option value="cli">CLI（在终端中运行）</option>
               <option value="gui">GUI（直接打开应用）</option>
             </select>
+          </div>
+          <div class="field" id="f-terminal-field">
+            <label>终端 <span class="muted">（仅 CLI 类型使用）</span></label>
+            <select id="f-terminal"></select>
           </div>
           <div class="field">
             <label>可执行文件</label>
@@ -112,7 +100,7 @@
             <input id="f-icon" type="text" placeholder="可选" />
           </div>
           <div class="field">
-            <label>显示位置 <span class="muted">（不勾选＝跟随全局默认）</span></label>
+            <label>显示位置 <span class="muted">（至少选一个，写入当前用户 HKCU）</span></label>
             <div class="pos-group" id="item-positions">
               <label><input type="checkbox" value="background" /> 文件夹空白处</label>
               <label><input type="checkbox" value="folder" /> 右击文件夹本身</label>
@@ -126,7 +114,7 @@
         </div>
         <div class="modal-foot">
           <button class="btn" data-close>取消</button>
-          <button id="edit-save" class="btn btn-primary">保存</button>
+          <button id="edit-save" class="btn btn-primary">创建</button>
         </div>
       </div>
     </div>

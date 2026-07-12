@@ -5,6 +5,7 @@ mod catalog;
 mod commands;
 mod config;
 mod launcher;
+mod menuscan;
 mod registry;
 mod scanner;
 mod icon;
@@ -24,6 +25,10 @@ fn main() {
             commands::import_config,
             commands::restart_explorer,
             commands::get_tool_icon,
+            commands::scan_existing_menus,
+            commands::toggle_existing,
+            commands::delete_existing,
+            commands::add_existing,
         ])
         .run(tauri::generate_context!())
         .expect("启动 RightMenu 失败");

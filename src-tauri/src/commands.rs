@@ -1,5 +1,6 @@
 use crate::config::{self, Config, MenuItem};
 use crate::launcher::{self, render_command};
+use crate::menuscan::{self, ExistingEntry};
 use crate::registry::{self, ApplyReport};
 use crate::scanner::{self, DetectedTool};
 use crate::icon;
@@ -78,4 +79,42 @@ pub fn restart_explorer() -> Result<(), String> {
 #[tauri::command]
 pub fn get_tool_icon(exe: String) -> Option<String> {
     icon::extract_icon_data_uri(&exe)
+}
+
+// ---------- 系统现有右键菜单项（方向2） ----------
+
+/// 扫描系统里所有已存在的右键菜单启动项（各挂载点 + HKCU/HKLM）
+#[tauri::command]
+pub fn scan_existing_menus() -> Vec<ExistingEntry> {
+    menuscan::scan()
+}
+
+/// 启用/禁用某个现存菜单项（可逆，用 LegacyDisable）
+#[tauri::command]
+pub fn toggle_existing(
+    hive: String,
+    location: String,
+    key_name: String,
+    enable: bool,
+) -> Result<(), String> {
+    menuscan::toggle(&hive, &location, &key_name, enable)
+}
+
+/// 删除某个现存菜单项
+#[tauri::command]
+pub fn delete_existing(hive: String, location: String, key_name: String) -> Result<(), String> {
+    menuscan::delete(&hive, &location, &key_name)
+}
+
+/// 新增一个启动动词到指定挂载点
+#[tauri::command]
+pub fn add_existing(
+    hive: String,
+    location: String,
+    key_name: String,
+    display_name: String,
+    command: String,
+    icon: String,
+) -> Result<(), String> {
+    menuscan::add(&hive, &location, &key_name, &display_name, &command, &icon)
 }
