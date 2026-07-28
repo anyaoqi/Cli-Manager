@@ -1,0 +1,36 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <RootNamespace>RightMenu.App</RootNamespace>
+    <AssemblyName>RightMenu.App</AssemblyName>
+    <UseWPF>true</UseWPF>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <ApplicationIcon>Assets\app.ico</ApplicationIcon>
+    <!-- 显式 Main：broker 模式（/launch 参数）不创建 WPF Application，见规划 02 §5 -->
+    <EnableDefaultApplicationDefinition>false</EnableDefaultApplicationDefinition>
+    <StartupObject>RightMenu.App.Program</StartupObject>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="WPF-UI" />
+    <PackageReference Include="CommunityToolkit.Mvvm" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Resource Include="Assets\app.png" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\RightMenu.Core\RightMenu.Core.csproj" />
+    <!-- 确保 Runner.exe 与 App 同目录（broker 从 AppContext.BaseDirectory 查找；发布时也同目录） -->
+    <ProjectReference Include="..\RightMenu.Runner\RightMenu.Runner.csproj">
+      <ReferenceOutputAssembly>false</ReferenceOutputAssembly>
+      <OutputItemType>Content</OutputItemType>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <Targets>Build</Targets>
+    </ProjectReference>
+  </ItemGroup>
+
+</Project>

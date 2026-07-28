@@ -1,0 +1,12 @@
+<Project>
+  <!-- 中央包管理：所有版本在此锁定为确切版本，不使用区间（规划 01 §5） -->
+  <ItemGroup>
+    <PackageVersion Include="WPF-UI" Version="4.3.0" />
+    <PackageVersion Include="CommunityToolkit.Mvvm" Version="8.4.2" />
+    <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="17.14.1" />
+    <PackageVersion Include="xunit" Version="2.9.3" />
+    <PackageVersion Include="xunit.runner.visualstudio" Version="3.1.5" />
+    <!-- FluentAssertions 锁定 7.x：8.x 起改为商业许可 -->
+    <PackageVersion Include="FluentAssertions" Version="7.2.2" />
+  </ItemGroup>
+</Project>

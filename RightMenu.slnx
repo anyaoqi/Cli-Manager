@@ -1,0 +1,10 @@
+<Solution>
+  <Folder Name="/src/">
+    <Project Path="src/RightMenu.App/RightMenu.App.csproj" />
+    <Project Path="src/RightMenu.Core/RightMenu.Core.csproj" />
+    <Project Path="src/RightMenu.Runner/RightMenu.Runner.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/RightMenu.Core.Tests/RightMenu.Core.Tests.csproj" />
+  </Folder>
+</Solution>
