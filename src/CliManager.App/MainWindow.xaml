@@ -42,6 +42,17 @@
             </Grid>
         </Border>
 
+        <!-- 操作结果浮动通知条 InfoBar -->
+        <ui:InfoBar Grid.Row="2"
+                    Title="{Binding InfoBarTitle}"
+                    Message="{Binding InfoBarMessage}"
+                    Severity="{Binding InfoBarSeverity}"
+                    IsOpen="{Binding IsInfoBarOpen, Mode=TwoWay}"
+                    IsClosable="True"
+                    VerticalAlignment="Top"
+                    Panel.ZIndex="999"
+                    Margin="16,8,16,0" />
+
         <!-- 主工作区分栏 -->
         <Grid Grid.Row="2" Margin="16,0,16,0" VerticalAlignment="Stretch">
             <Grid.ColumnDefinitions>
@@ -61,17 +72,38 @@
                         <RowDefinition Height="*" />
                     </Grid.RowDefinitions>
 
-                    <!-- 工具栏 -->
-                    <StackPanel Grid.Row="0" Margin="0,0,0,12">
-                        <TextBlock Text="📂 菜单结构编排" FontSize="16" FontWeight="SemiBold" Margin="0,0,0,8" />
-                        <WrapPanel>
-                            <ui:Button Content="➕ 新建文件夹" Command="{Binding AddFolderCommand}" Margin="0,0,6,6" />
-                            <ui:Button Content="➕ 添加工具" Command="{Binding AddToolCommand}" Margin="0,0,6,6" />
-                            <ui:Button Content="🔼 上移" Command="{Binding MoveUpCommand}" Margin="0,0,6,6" />
-                            <ui:Button Content="🔽 下移" Command="{Binding MoveDownCommand}" Margin="0,0,6,6" />
-                            <ui:Button Content="🗑️ 删除" Appearance="Danger" Command="{Binding DeleteCurrentCommand}" Margin="0,0,6,6" />
-                        </WrapPanel>
-                    </StackPanel>
+                    <!-- 顶部标题与单行紧凑图标工具栏 -->
+                    <Grid Grid.Row="0" Margin="0,0,0,10">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+
+                        <TextBlock Grid.Column="0" Text="📂 菜单结构编排" FontSize="15" FontWeight="SemiBold" VerticalAlignment="Center" />
+
+                        <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                            <ui:Button ToolTip="新建文件夹" Command="{Binding AddFolderCommand}"
+                                       ToolTipService.InitialShowDelay="200" Margin="0,0,4,0" Padding="6,5">
+                                <ui:SymbolIcon Symbol="FolderAdd20" />
+                            </ui:Button>
+                            <ui:Button ToolTip="添加 CLI 工具" Command="{Binding AddToolCommand}"
+                                       ToolTipService.InitialShowDelay="200" Margin="0,0,4,0" Padding="6,5">
+                                <ui:SymbolIcon Symbol="Add20" />
+                            </ui:Button>
+                            <ui:Button ToolTip="上移" Command="{Binding MoveUpCommand}"
+                                       ToolTipService.InitialShowDelay="200" Margin="0,0,4,0" Padding="6,5">
+                                <ui:SymbolIcon Symbol="ArrowUp20" />
+                            </ui:Button>
+                            <ui:Button ToolTip="下移" Command="{Binding MoveDownCommand}"
+                                       ToolTipService.InitialShowDelay="200" Margin="0,0,4,0" Padding="6,5">
+                                <ui:SymbolIcon Symbol="ArrowDown20" />
+                            </ui:Button>
+                            <ui:Button ToolTip="删除所选项" Command="{Binding DeleteCurrentCommand}"
+                                       ToolTipService.InitialShowDelay="200" Appearance="Danger" Padding="6,5">
+                                <ui:SymbolIcon Symbol="Delete20" />
+                            </ui:Button>
+                        </StackPanel>
+                    </Grid>
 
                     <!-- 树形列表（支持拖拽）与空状态提示 -->
                     <Grid Grid.Row="1">

@@ -21,7 +21,10 @@ public class LayoutVerificationTest
             window.Arrange(new Rect(0, 0, 1120, 740));
 
             var grid = (Grid)window.Content;
-            var mainWorkspace = (Grid)grid.Children[2];
+            var infoBar = grid.Children.OfType<Wpf.Ui.Controls.InfoBar>().FirstOrDefault();
+            Assert.NotNull(infoBar);
+
+            var mainWorkspace = grid.Children.OfType<Grid>().First(g => Grid.GetRow(g) == 2);
             var leftCard = (Wpf.Ui.Controls.Card)mainWorkspace.Children[0];
             var rightCard = (Wpf.Ui.Controls.Card)mainWorkspace.Children[2];
 

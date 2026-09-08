@@ -5,6 +5,7 @@ using CliManager.Core.Models;
 using CliManager.Core.Registry;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Wpf.Ui.Controls;
 
 namespace CliManager.App.ViewModels;
 
@@ -43,6 +44,9 @@ public partial class MainViewModel : ObservableObject
 
     [ObservableProperty]
     private bool _isInfoBarOpen;
+
+    [ObservableProperty]
+    private InfoBarSeverity _infoBarSeverity = InfoBarSeverity.Success;
 
     [ObservableProperty]
     private bool _hasDetectedTools;
@@ -408,20 +412,38 @@ public partial class MainViewModel : ObservableObject
 
             if (result.Success)
             {
+                UpdateLivePreview();
+                LivePreviewText = $"✅ [同步成功] 生效 {result.AddedOrUpdatedCount} 项，清理 {result.DeletedCount} 项 - {DateTime.Now:HH:mm:ss}";
                 ShowInfoBar(
                     "保存并同步成功",
-                    $"已成功更新注册表！生效项: {result.AddedOrUpdatedCount}，清理旧项: {result.DeletedCount}。现在可以在资源管理器任意文件夹空白处右键查看效果。");
+                    $"已成功写入注册表！生效项: {result.AddedOrUpdatedCount}，清理旧项: {result.DeletedCount}。现在可在任意目录空白处右键查看效果！",
+                    InfoBarSeverity.Success);
             }
             else
             {
+                string errorMsg = string.Join("；", result.Errors);
+                LivePreviewText = $"❌ [同步失败] {errorMsg} - {DateTime.Now:HH:mm:ss}";
                 ShowInfoBar(
                     "同步时出现错误",
-                    string.Join("；", result.Errors));
+                    errorMsg,
+                    InfoBarSeverity.Error);
+
+                System.Windows.MessageBox.Show(
+                    $"同步到右键菜单失败：\n\n{errorMsg}",
+                    "CliManager 同步失败",
+                    System.Windows.MessageBoxButton.OK,
+                    System.Windows.MessageBoxImage.Warning);
             }
         }
         catch (Exception ex)
         {
-            ShowInfoBar("保存异常", ex.Message);
+            LivePreviewText = $"❌ [异常] {ex.Message} - {DateTime.Now:HH:mm:ss}";
+            ShowInfoBar("保存异常", ex.Message, InfoBarSeverity.Error);
+            System.Windows.MessageBox.Show(
+                $"保存并同步过程中发生未预期异常：\n\n{ex.Message}",
+                "CliManager 异常",
+                System.Windows.MessageBoxButton.OK,
+                System.Windows.MessageBoxImage.Error);
         }
     }
 
@@ -448,11 +470,21 @@ public partial class MainViewModel : ObservableObject
             : "(暂无配置项，请点击上方按钮新建分组或添加工具)";
     }
 
-    private void ShowInfoBar(string title, string message)
+    private async void ShowInfoBar(string title, string message, InfoBarSeverity severity = InfoBarSeverity.Success)
     {
         InfoBarTitle = title;
         InfoBarMessage = message;
+        InfoBarSeverity = severity;
         IsInfoBarOpen = true;
+
+        if (severity == InfoBarSeverity.Success)
+        {
+            await Task.Delay(5000);
+            if (InfoBarTitle == title)
+            {
+                IsInfoBarOpen = false;
+            }
+        }
     }
 
     private TreeNodeViewModel? FindNode(string id)
