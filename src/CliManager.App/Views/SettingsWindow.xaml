@@ -1,0 +1,120 @@
+<ui:FluentWindow x:Class="CliManager.App.Views.SettingsWindow"
+                 xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                 xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                 xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+                 xmlns:vm="clr-namespace:CliManager.App.ViewModels"
+                 Title="设置与存量迁移 - CliManager"
+                 Width="760" Height="580"
+                 WindowStartupLocation="CenterOwner"
+                 WindowBackdropType="Mica">
+    <Grid Margin="20">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <TextBlock Grid.Row="0" Text="⚙️ 设置与迁移中心" FontSize="20" FontWeight="SemiBold" Margin="0,0,0,16" />
+
+        <TabControl Grid.Row="1">
+            <!-- 标签页 1：Win11 菜单模式 -->
+            <TabItem Header="Windows 11 菜单形态">
+                <ScrollViewer VerticalScrollBarVisibility="Auto">
+                    <StackPanel Margin="16">
+                        <ui:Card Padding="16" Margin="0,0,0,16">
+                            <StackPanel>
+                                <TextBlock Text="右键菜单工作模式" FontSize="16" FontWeight="SemiBold" Margin="0,0,0,8" />
+                                <TextBlock Text="Windows 11 默认新版右键菜单会将所有纯静态注册表项收进【显示更多选项】二级层。启用 Win10 经典菜单后，所有 CLI 工具将直接排布在一级右键菜单中。"
+                                           TextWrapping="Wrap" Foreground="{DynamicResource TextFillColorSecondaryBrush}" Margin="0,0,0,12" />
+
+                                <TextBlock Text="{Binding ClassicMenuStatusText}" FontWeight="Medium" Margin="0,0,0,12" />
+
+                                <WrapPanel>
+                                    <ui:Button Content="🔄 切换右键菜单模式" Appearance="Primary"
+                                               Command="{Binding ToggleClassicMenuCommand}" Margin="0,0,12,8" />
+                                    <ui:Button Content="⚡ 重启资源管理器 (使设置生效)"
+                                               Command="{Binding RestartExplorerCommand}" Margin="0,0,12,8" />
+                                </WrapPanel>
+                            </StackPanel>
+                        </ui:Card>
+
+                        <ui:Card Padding="16">
+                            <StackPanel>
+                                <TextBlock Text="配置文件位置" FontSize="15" FontWeight="SemiBold" Margin="0,0,0,8" />
+                                <TextBox Text="{Binding ConfigPath, Mode=OneWay}" IsReadOnly="True" Margin="0,0,0,6" />
+                                <TextBlock Text="提示：如果在程序所在目录下放置 config.json，将自动启用便携模式。"
+                                           FontSize="12" Foreground="{DynamicResource TextFillColorTertiaryBrush}" />
+                            </StackPanel>
+                        </ui:Card>
+                    </StackPanel>
+                </ScrollViewer>
+            </TabItem>
+
+            <!-- 标签页 2：存量右键项迁移向导 -->
+            <TabItem Header="存量右键项迁移向导">
+                <Grid Margin="16">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+
+                    <StackPanel Grid.Row="0" Margin="0,0,0,12">
+                        <TextBlock Text="扫描并接管既有右键项" FontSize="16" FontWeight="SemiBold" Margin="0,0,0,6" />
+                        <TextBlock Text="扫描本机已存在的手工配置、旧版 RightMenu 遗留项或第三方工具项，将其无损转换为 CliManager 统一管理配置，并可安全清理已失效的死链条目。"
+                                   TextWrapping="Wrap" Foreground="{DynamicResource TextFillColorSecondaryBrush}" Margin="0,0,0,10" />
+
+                        <WrapPanel>
+                            <ui:Button Content="🔍 重新扫描本机存量项" Command="{Binding ScanLegacyItemsCommand}" Margin="0,0,12,0" />
+                            <ui:Button Content="📥 一键导入接管选中项" Appearance="Primary" Command="{Binding ImportSelectedLegacyItemsCommand}" />
+                        </WrapPanel>
+                    </StackPanel>
+
+                    <ui:ListView Grid.Row="1" ItemsSource="{Binding ScannedLegacyItems}" BorderThickness="1"
+                                 BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}"
+                                 ScrollViewer.VerticalScrollBarVisibility="Auto">
+                        <ui:ListView.ItemTemplate>
+                            <DataTemplate>
+                                <Grid Margin="4,6">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="60" />
+                                        <ColumnDefinition Width="160" />
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="80" />
+                                    </Grid.ColumnDefinitions>
+
+                                    <CheckBox Grid.Column="0" IsChecked="{Binding IsSelected}" VerticalAlignment="Center" Margin="0,0,8,0" />
+                                    <TextBlock Grid.Column="1" Text="{Binding Hive}" FontWeight="Bold" VerticalAlignment="Center" Foreground="{DynamicResource AccentTextFillColorPrimaryBrush}" />
+                                    <TextBlock Grid.Column="2" Text="{Binding DisplayName}" FontWeight="SemiBold" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                                    <StackPanel Grid.Column="3" VerticalAlignment="Center">
+                                        <TextBlock Text="{Binding ExtractedExecutable}" TextTrimming="CharacterEllipsis" FontSize="12" />
+                                        <TextBlock Text="{Binding RawCommand}" TextTrimming="CharacterEllipsis" FontSize="11" Foreground="{DynamicResource TextFillColorTertiaryBrush}" />
+                                    </StackPanel>
+                                    <TextBlock Grid.Column="4" VerticalAlignment="Center" HorizontalAlignment="Right">
+                                        <TextBlock.Style>
+                                            <Style TargetType="TextBlock">
+                                                <Setter Property="Text" Value="正常" />
+                                                <Setter Property="Foreground" Value="#107C41" />
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding IsDeadLink}" Value="True">
+                                                        <Setter Property="Text" Value="⚠️ 死链" />
+                                                        <Setter Property="Foreground" Value="#D83B01" />
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </TextBlock.Style>
+                                    </TextBlock>
+                                </Grid>
+                            </DataTemplate>
+                        </ui:ListView.ItemTemplate>
+                    </ui:ListView>
+
+                    <TextBlock Grid.Row="2" Text="{Binding StatusMessage}" Margin="0,8,0,0" Foreground="{DynamicResource AccentTextFillColorPrimaryBrush}" />
+                </Grid>
+            </TabItem>
+        </TabControl>
+
+        <ui:Button Grid.Row="2" Content="关闭" HorizontalAlignment="Right" Width="90" Click="OnCloseClicked" Margin="0,16,0,0" />
+    </Grid>
+</ui:FluentWindow>
