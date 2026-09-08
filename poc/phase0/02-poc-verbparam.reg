@@ -1,0 +1,10 @@
+Windows Registry Editor Version 5.00
+
+; 050：验证 explorer 动词参数替换对 %VAR% 的影响
+; 预期（若 %W 为动词参数）：W=<当前文件夹>INDIR% ，V2=<当前文件夹>X%
+
+[HKEY_CURRENT_USER\Software\Classes\Directory\Background\shell\CliMgrPOC_A\shell\050_W测试]
+"MUIVerb"="050 动词参数替换验证"
+
+[HKEY_CURRENT_USER\Software\Classes\Directory\Background\shell\CliMgrPOC_A\shell\050_W测试\command]
+@="cmd.exe /d /k echo W=%WINDIR% & echo V2=%VX%"

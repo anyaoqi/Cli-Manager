@@ -1,0 +1,6 @@
+Windows Registry Editor Version 5.00
+
+; CliManager Phase 0 POC - 清理全部测试项
+
+[-HKEY_CURRENT_USER\Software\Classes\Directory\Background\shell\CliMgrPOC_A]
+[-HKEY_CURRENT_USER\Software\Classes\Directory\Background\shell\CliMgrPOC_B]

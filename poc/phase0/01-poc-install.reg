@@ -1,0 +1,63 @@
+Windows Registry Editor Version 5.00
+
+; ============================================================
+; CliManager Phase 0 POC - 测试注册表项（安装）
+; 全部位于 HKCU，无需提权；验证后用 99-poc-cleanup.reg 清理
+; ============================================================
+
+; ---------- 变体 A：SubCommands="" 级联 ----------
+[HKEY_CURRENT_USER\Software\Classes\Directory\Background\shell\CliMgrPOC_A]
+"MUIVerb"="POC-A ▷ SubCommands 级联"
+"SubCommands"=""
+"Icon"="C:\\Windows\\System32\\cmd.exe"
+"CliManager.Managed"=dword:00000001
+
+; 010 Alpha：cmd 宿主 + pushd + 环境变量编译（§3.3.1 / §3.3.2）
+[HKEY_CURRENT_USER\Software\Classes\Directory\Background\shell\CliMgrPOC_A\shell\010_Alpha工具]
+"MUIVerb"="010 Alpha 工具 (cmd+env)"
+"Icon"="C:\\Windows\\System32\\cmd.exe"
+
+[HKEY_CURRENT_USER\Software\Classes\Directory\Background\shell\CliMgrPOC_A\shell\010_Alpha工具\command]
+@="cmd.exe /d /k pushd \"%V\" & set \"HTTP_PROXY=http://127.0.0.1:7899\" & cd & set HTTP_PROXY & echo POC_A_010_OK"
+
+; 020 Beta：Windows Terminal 宿主 + 内层 cmd 承载 env
+[HKEY_CURRENT_USER\Software\Classes\Directory\Background\shell\CliMgrPOC_A\shell\020_Beta工具]
+"MUIVerb"="020 Beta 工具 (wt+env)"
+"Icon"="C:\\Users\\admin\\AppData\\Local\\Microsoft\\WindowsApps\\wt.exe"
+
+[HKEY_CURRENT_USER\Software\Classes\Directory\Background\shell\CliMgrPOC_A\shell\020_Beta工具\command]
+@="wt.exe -d \"%V\" cmd.exe /d /k \"set HTTP_PROXY=http://127.0.0.1:7899 & set HTTP_PROXY & cd & echo POC_A_020_WT_OK\""
+
+; 030 Charlie：PowerShell 宿主 + $env: 前缀 env 编译 + 单引号 %V
+[HKEY_CURRENT_USER\Software\Classes\Directory\Background\shell\CliMgrPOC_A\shell\030_Charlie工具]
+"MUIVerb"="030 Charlie 工具 (powershell)"
+"Icon"="C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe"
+
+[HKEY_CURRENT_USER\Software\Classes\Directory\Background\shell\CliMgrPOC_A\shell\030_Charlie工具\command]
+@="powershell.exe -NoExit -Command \"$env:HTTP_PROXY='http://127.0.0.1:7899'; Set-Location -LiteralPath '%V'; Write-Host POC_A_030_PS_OK; Get-Location; Get-Item Env:HTTP_PROXY\""
+
+; 040 Percent：注册表 % 字面量行为（§3.3.2 规则 7 真机取证）
+[HKEY_CURRENT_USER\Software\Classes\Directory\Background\shell\CliMgrPOC_A\shell\040_Percent测试]
+"MUIVerb"="040 Percent 百分号测试"
+
+[HKEY_CURRENT_USER\Software\Classes\Directory\Background\shell\CliMgrPOC_A\shell\040_Percent测试\command]
+@="cmd.exe /d /k echo PCT1=100%% & echo PCT2=D:\\100%\\dir\\tool.exe & echo PCT3=%WINDIR%"
+
+; ---------- 变体 B：ExtendedSubCommandsKey 级联 ----------
+[HKEY_CURRENT_USER\Software\Classes\Directory\Background\shell\CliMgrPOC_B]
+"MUIVerb"="POC-B ▷ ExtSubCmds 级联"
+"ExtendedSubCommandsKey"="Directory\\Background\\shell\\CliMgrPOC_B"
+"Icon"="C:\\Windows\\System32\\cmd.exe"
+"CliManager.Managed"=dword:00000001
+
+[HKEY_CURRENT_USER\Software\Classes\Directory\Background\shell\CliMgrPOC_B\shell\010_One]
+"MUIVerb"="010 One"
+
+[HKEY_CURRENT_USER\Software\Classes\Directory\Background\shell\CliMgrPOC_B\shell\010_One\command]
+@="cmd.exe /d /k cd & echo POC_B_010_OK"
+
+[HKEY_CURRENT_USER\Software\Classes\Directory\Background\shell\CliMgrPOC_B\shell\020_Two]
+"MUIVerb"="020 Two"
+
+[HKEY_CURRENT_USER\Software\Classes\Directory\Background\shell\CliMgrPOC_B\shell\020_Two\command]
+@="cmd.exe /d /k echo POC_B_020_OK"
