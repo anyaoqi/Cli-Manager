@@ -249,13 +249,15 @@
                                 <TextBlock Text="专属图标路径" FontWeight="Medium" Margin="0,0,0,6" />
                                 <Grid>
                                     <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="Auto" />
                                         <ColumnDefinition Width="*" />
                                         <ColumnDefinition Width="Auto" />
                                         <ColumnDefinition Width="Auto" />
                                     </Grid.ColumnDefinitions>
-                                    <TextBox Grid.Column="0" Text="{Binding Icon, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,8,0" />
-                                    <ui:Button Grid.Column="1" Content="浏览..." Command="{Binding BrowseIconCommand}" Margin="0,0,6,0" />
-                                    <ui:Button Grid.Column="2" Content="清除" Command="{Binding ClearIconCommand}" />
+                                    <Image Grid.Column="0" Source="{Binding IconSource}" Width="24" Height="24" Margin="0,0,8,0" />
+                                    <TextBox Grid.Column="1" Text="{Binding Icon, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,8,0" />
+                                    <ui:Button Grid.Column="2" Content="浏览..." Command="{Binding BrowseIconCommand}" Margin="0,0,6,0" />
+                                    <ui:Button Grid.Column="3" Content="清除" Command="{Binding ClearIconCommand}" />
                                 </Grid>
                             </StackPanel>
 

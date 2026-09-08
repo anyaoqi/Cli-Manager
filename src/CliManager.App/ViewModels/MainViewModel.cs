@@ -63,6 +63,16 @@ public partial class MainViewModel : ObservableObject
     public MainViewModel()
     {
         Config = ConfigStorageService.LoadConfig();
+
+        // 清理历史残留的 AI 编程工具默认图标（按需求去掉默认图标值）
+        foreach (var f in Config.Folders)
+        {
+            if (f.Name.Contains("AI") && f.Icon == "shell32.dll,305")
+            {
+                f.Icon = null;
+            }
+        }
+
         BuildTree();
         RunDiscovery();
         UpdateLivePreview();
@@ -213,15 +223,16 @@ public partial class MainViewModel : ObservableObject
             folder = new FolderItem
             {
                 Name = "AI 编程工具",
-                Icon = "shell32.dll,305",
+                Icon = null, // 去掉默认图标值，保持为空
                 Order = 10,
                 Enabled = true
             };
             Config.Folders.Add(folder);
         }
-        else if (string.IsNullOrWhiteSpace(folder.Icon))
+        else if (folder.Icon == "shell32.dll,305")
         {
-            folder.Icon = "shell32.dll,305";
+            // 若为历史遗留的默认值则清除
+            folder.Icon = null;
         }
 
         int startOrder = Config.Tools.Count > 0 ? Config.Tools.Max(t => t.Order) : 0;
@@ -230,14 +241,22 @@ public partial class MainViewModel : ObservableObject
             startOrder += 10;
 
             // 智能识别最佳图标路径（若为 .cmd/.bat 则优先探查同级同名 .exe）
-            string iconPath = d.ExecutablePath;
-            if (iconPath.EndsWith(".cmd", StringComparison.OrdinalIgnoreCase) ||
-                iconPath.EndsWith(".bat", StringComparison.OrdinalIgnoreCase))
+            string? iconPath = null;
+            if (!string.IsNullOrWhiteSpace(d.ExecutablePath))
             {
-                string siblingExe = Path.ChangeExtension(iconPath, ".exe");
-                if (File.Exists(siblingExe))
+                string exe = d.ExecutablePath;
+                if (exe.EndsWith(".cmd", StringComparison.OrdinalIgnoreCase) ||
+                    exe.EndsWith(".bat", StringComparison.OrdinalIgnoreCase))
                 {
-                    iconPath = siblingExe;
+                    string siblingExe = Path.ChangeExtension(exe, ".exe");
+                    if (File.Exists(siblingExe))
+                    {
+                        iconPath = siblingExe;
+                    }
+                }
+                else if (File.Exists(exe) && exe.EndsWith(".exe", StringComparison.OrdinalIgnoreCase))
+                {
+                    iconPath = exe;
                 }
             }
 

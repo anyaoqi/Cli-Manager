@@ -223,13 +223,16 @@ public partial class ToolEditorViewModel : ObservableObject
 
     private void RefreshIcon()
     {
-        string? path = Icon;
-        if (string.IsNullOrWhiteSpace(path))
+        if (!string.IsNullOrWhiteSpace(Icon))
         {
-            path = Executable;
+            ImageHelper.InvalidateCache(Icon);
+        }
+        if (!string.IsNullOrWhiteSpace(Executable))
+        {
+            ImageHelper.InvalidateCache(Executable);
         }
 
-        IconSource = ImageHelper.GetIconSource(path);
+        IconSource = ImageHelper.GetToolIcon(Icon, Executable);
     }
 
     public void RecomputePreview()

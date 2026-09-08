@@ -87,4 +87,56 @@ public class LayoutVerificationTest
         thread.Start();
         thread.Join();
     }
+
+    [Fact]
+    public void VerifyDefaultIconsExtractionAndFallback()
+    {
+        var thread = new Thread(() =>
+        {
+            // 1. Verify Core extraction for cmd.exe,0 and shell32.dll,3
+            byte[]? folderBytes = CliManager.Core.Icons.IconExtractor.ExtractPngBytes("shell32.dll,3");
+            Assert.NotNull(folderBytes);
+            Assert.True(folderBytes.Length > 0);
+
+            byte[]? cmdBytes = CliManager.Core.Icons.IconExtractor.ExtractPngBytes("cmd.exe,0");
+            Assert.NotNull(cmdBytes);
+            Assert.True(cmdBytes.Length > 0);
+
+            // 2. Verify ImageHelper default fallbacks
+            var folderIcon = CliManager.App.Services.ImageHelper.GetFolderIcon(null);
+            Assert.NotNull(folderIcon);
+
+            var folderIconEmpty = CliManager.App.Services.ImageHelper.GetFolderIcon("");
+            Assert.NotNull(folderIconEmpty);
+
+            var toolIconNull = CliManager.App.Services.ImageHelper.GetToolIcon(null, null);
+            Assert.NotNull(toolIconNull);
+
+            var toolIconEmpty = CliManager.App.Services.ImageHelper.GetToolIcon("", "");
+            Assert.NotNull(toolIconEmpty);
+
+            // 3. Verify TreeNodeViewModel fallback for empty tool and folder
+            var folder = new CliManager.Core.Models.FolderItem { Name = "AI 编程工具", Icon = null };
+            var folderNode = CliManager.App.ViewModels.TreeNodeViewModel.CreateFolderNode(folder);
+            Assert.NotNull(folderNode.IconSource);
+
+            var tool = new CliManager.Core.Models.ToolItem { Name = "Claude Code", Icon = null, Executable = "" };
+            var toolNode = CliManager.App.ViewModels.TreeNodeViewModel.CreateToolNode(tool);
+            Assert.NotNull(toolNode.IconSource);
+
+            // 4. Verify ToolEditorViewModel preview fallback
+            var toolEditor = new CliManager.App.ViewModels.ToolEditorViewModel();
+            toolEditor.Load(tool, [folder]);
+            Assert.NotNull(toolEditor.IconSource);
+
+            // 5. Verify FolderEditorViewModel preview fallback
+            var folderEditor = new CliManager.App.ViewModels.FolderEditorViewModel();
+            folderEditor.Load(folder);
+            Assert.NotNull(folderEditor.IconSource);
+        });
+
+        thread.SetApartmentState(ApartmentState.STA);
+        thread.Start();
+        thread.Join();
+    }
 }

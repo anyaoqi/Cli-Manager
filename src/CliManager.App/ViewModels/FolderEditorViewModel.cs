@@ -98,6 +98,11 @@ public partial class FolderEditorViewModel : ObservableObject
 
     private void RefreshIcon()
     {
-        IconSource = ImageHelper.GetIconSource(Icon);
+        if (!string.IsNullOrWhiteSpace(Icon))
+        {
+            ImageHelper.InvalidateCache(Icon);
+        }
+
+        IconSource = ImageHelper.GetFolderIcon(Icon);
     }
 }

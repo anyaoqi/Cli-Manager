@@ -70,7 +70,7 @@ public partial class TreeNodeViewModel : ObservableObject
             Order = folder.Order,
             Folder = folder,
             IsChild = false,
-            IconSource = ImageHelper.GetIconSource(folder.Icon ?? "shell32.dll,3")
+            IconSource = ImageHelper.GetFolderIcon(folder.Icon)
         };
         return node;
     }
@@ -88,19 +88,32 @@ public partial class TreeNodeViewModel : ObservableObject
             Tool = tool,
             ParentNode = parent,
             IsChild = parent != null,
-            IconSource = ImageHelper.GetIconSource(tool.Icon ?? tool.Executable ?? "cmd.exe")
+            IconSource = ImageHelper.GetToolIcon(tool.Icon, tool.Executable)
         };
         return node;
     }
 
     public void RefreshIcon()
     {
-        string? path = IconPath ?? (Tool?.Executable);
-        if (string.IsNullOrWhiteSpace(path))
+        if (IsFolder)
         {
-            path = IsFolder ? "shell32.dll,3" : "cmd.exe";
+            if (!string.IsNullOrWhiteSpace(IconPath))
+            {
+                ImageHelper.InvalidateCache(IconPath);
+            }
+            IconSource = ImageHelper.GetFolderIcon(IconPath);
         }
-        ImageHelper.InvalidateCache(path);
-        IconSource = ImageHelper.GetIconSource(path);
+        else
+        {
+            if (!string.IsNullOrWhiteSpace(IconPath))
+            {
+                ImageHelper.InvalidateCache(IconPath);
+            }
+            if (!string.IsNullOrWhiteSpace(Tool?.Executable))
+            {
+                ImageHelper.InvalidateCache(Tool.Executable);
+            }
+            IconSource = ImageHelper.GetToolIcon(IconPath, Tool?.Executable);
+        }
     }
 }
