@@ -447,9 +447,12 @@
                 <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
 
-            <!-- 实时预览 -->
-            <ui:Card Grid.Column="0" Margin="0,0,12,0" Padding="12,8">
-                <TextBlock Text="{Binding LivePreviewText}" FontWeight="Medium" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+            <!-- 实时概览卡片 -->
+            <ui:Card Grid.Column="0" Margin="0,0,12,0" Padding="12,8"
+                     ToolTip="{Binding LivePreviewToolTip}" ToolTipService.InitialShowDelay="200">
+                <TextBlock Text="{Binding LivePreviewText}" FontWeight="Medium"
+                           Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                           TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
             </ui:Card>
 
             <!-- 动作按钮 -->

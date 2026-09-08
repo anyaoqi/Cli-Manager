@@ -40,6 +40,9 @@ public partial class MainViewModel : ObservableObject
     private string _livePreviewText = string.Empty;
 
     [ObservableProperty]
+    private string _livePreviewToolTip = string.Empty;
+
+    [ObservableProperty]
     private string? _infoBarTitle;
 
     [ObservableProperty]
@@ -548,25 +551,54 @@ public partial class MainViewModel : ObservableObject
 
     private void UpdateLivePreview()
     {
-        var parts = new List<string>();
+        int folderCount = RootNodes.Count(n => n.IsFolder);
+        int directToolCount = RootNodes.Count(n => !n.IsFolder);
+        int totalTools = Config.Tools.Count;
+
+        if (RootNodes.Count == 0)
+        {
+            LivePreviewText = "📌 暂无右键配置项（点击上方按钮新建分组或添加工具）";
+            LivePreviewToolTip = "暂无配置项，请点击上方按钮新建分组或添加工具";
+            return;
+        }
+
+        // 底部单行精简概览：清晰、短小、绝不溢出截断
+        string summary;
+        if (folderCount > 0 && directToolCount > 0)
+        {
+            summary = $"{folderCount} 个分组、{directToolCount} 个一级工具（共 {totalTools} 项）";
+        }
+        else if (folderCount > 0)
+        {
+            summary = $"{folderCount} 个分组（共 {totalTools} 项）";
+        }
+        else
+        {
+            summary = $"{directToolCount} 个一级工具";
+        }
+
+        LivePreviewText = $"📊 菜单概览：{summary}";
+
+        // 鼠标悬浮气泡：展示清晰的树形菜单层级预览
+        var sb = new System.Text.StringBuilder();
+        sb.AppendLine("右键菜单层级结构预览：");
+        sb.AppendLine("空白处右击");
         foreach (var node in RootNodes)
         {
             if (node.IsFolder)
             {
-                string childrenNames = node.Children.Count > 0
-                    ? string.Join(" / ", node.Children.Select(c => c.Title))
-                    : "空";
-                parts.Add($"[ 📂 {node.Title} ▷ ({childrenNames}) ]");
+                sb.AppendLine($"  📂 {node.Title} ({node.Children.Count} 项)");
+                foreach (var child in node.Children)
+                {
+                    sb.AppendLine($"     └─ 🚀 {child.Title}");
+                }
             }
             else
             {
-                parts.Add($"[ 🚀 {node.Title} ]");
+                sb.AppendLine($"  🚀 {node.Title}");
             }
         }
-
-        LivePreviewText = parts.Count > 0
-            ? "空白处右击 ➔ " + string.Join(" ➔ ", parts)
-            : "(暂无配置项，请点击上方按钮新建分组或添加工具)";
+        LivePreviewToolTip = sb.ToString().TrimEnd();
     }
 
     private async void ShowInfoBar(string title, string message, InfoBarSeverity severity = InfoBarSeverity.Success)
