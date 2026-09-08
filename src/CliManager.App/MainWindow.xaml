@@ -227,7 +227,7 @@
                 <Grid>
                     <!-- 空白未选择提示 -->
                     <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center"
-                                Visibility="{Binding SelectedNode, Converter={StaticResource InverseBoolToVisibilityConverter}}">
+                                Visibility="{Binding HasSelectedNode, Converter={StaticResource InverseBoolToVisibilityConverter}}">
                         <TextBlock Text="👈 请在左侧列表中选择一个文件夹或 CLI 工具进行配置"
                                    FontSize="15" Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
                     </StackPanel>

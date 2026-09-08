@@ -34,6 +34,9 @@ public partial class MainViewModel : ObservableObject
     private bool _isEditingFolder;
 
     [ObservableProperty]
+    private bool _hasSelectedNode;
+
+    [ObservableProperty]
     private string _livePreviewText = string.Empty;
 
     [ObservableProperty]
@@ -146,6 +149,7 @@ public partial class MainViewModel : ObservableObject
         {
             IsEditingFolder = false;
             IsEditingTool = false;
+            HasSelectedNode = false;
             return;
         }
 
@@ -153,6 +157,7 @@ public partial class MainViewModel : ObservableObject
         {
             IsEditingFolder = true;
             IsEditingTool = false;
+            HasSelectedNode = true;
             FolderEditor.Load(value.Folder, () =>
             {
                 value.Title = value.Folder.Name;
@@ -165,6 +170,7 @@ public partial class MainViewModel : ObservableObject
         {
             IsEditingFolder = false;
             IsEditingTool = true;
+            HasSelectedNode = true;
             ToolEditor.Load(value.Tool, Config.Folders, () =>
             {
                 value.Title = value.Tool.Name;
@@ -172,6 +178,12 @@ public partial class MainViewModel : ObservableObject
                 value.RefreshIcon();
                 UpdateLivePreview();
             });
+        }
+        else
+        {
+            IsEditingFolder = false;
+            IsEditingTool = false;
+            HasSelectedNode = false;
         }
     }
 
