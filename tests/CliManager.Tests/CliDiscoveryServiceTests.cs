@@ -35,4 +35,56 @@ public class CliDiscoveryServiceTests
             Assert.Contains("wt.exe", wtPath, StringComparison.OrdinalIgnoreCase);
         }
     }
+
+    [Fact]
+    public void DeduplicateDetectedTools_FiltersOutExtensionlessAndPrefersExecutable()
+    {
+        var raw = new List<DetectedTool>
+        {
+            new()
+            {
+                Name = "OpenCode",
+                ExecutablePath = @"D:\Software\nodejs\opencode", // 无扩展名
+                MatchedPresetId = "opencode",
+                Source = "path"
+            },
+            new()
+            {
+                Name = "OpenCode",
+                ExecutablePath = @"D:\Software\nodejs\opencode.ps1",
+                MatchedPresetId = "opencode",
+                Source = "path"
+            },
+            new()
+            {
+                Name = "OpenCode",
+                ExecutablePath = @"D:\Software\nodejs\opencode.cmd",
+                MatchedPresetId = "opencode",
+                Source = "path"
+            },
+            new()
+            {
+                Name = "Codex CLI",
+                ExecutablePath = @"D:\Software\nodejs\codex", // 无扩展名
+                MatchedPresetId = "codex",
+                Source = "path"
+            },
+            new()
+            {
+                Name = "Codex CLI",
+                ExecutablePath = @"D:\Software\nodejs\codex.cmd",
+                MatchedPresetId = "codex",
+                Source = "path"
+            }
+        };
+
+        var result = CliDiscoveryService.DeduplicateDetectedTools(raw);
+
+        // 仅保留 2 项：opencode.cmd 与 codex.cmd
+        Assert.Equal(2, result.Count);
+        Assert.Contains(result, t => t.ExecutablePath.EndsWith("opencode.cmd", StringComparison.OrdinalIgnoreCase));
+        Assert.Contains(result, t => t.ExecutablePath.EndsWith("codex.cmd", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(result, t => t.ExecutablePath.EndsWith(@"\opencode", StringComparison.OrdinalIgnoreCase));
+        Assert.DoesNotContain(result, t => t.ExecutablePath.EndsWith(@"\codex", StringComparison.OrdinalIgnoreCase));
+    }
 }

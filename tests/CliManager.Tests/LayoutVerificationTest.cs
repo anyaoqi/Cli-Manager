@@ -148,4 +148,57 @@ public class LayoutVerificationTest
         thread.Start();
         thread.Join();
     }
+
+    [Fact]
+    public void VerifyCleanLegacyDuplicates_RemovesBrokenExtensionlessDuplicates()
+    {
+        var config = new CliManager.Core.Models.CliConfig();
+        config.Tools.Add(new CliManager.Core.Models.ToolItem
+        {
+            Name = "OpenCode",
+            Executable = @"D:\Software\nodejs\opencode"
+        });
+        config.Tools.Add(new CliManager.Core.Models.ToolItem
+        {
+            Name = "OpenCode",
+            Executable = @"D:\Software\nodejs\opencode.cmd"
+        });
+
+        CliManager.App.ViewModels.MainViewModel.CleanLegacyDuplicates(config);
+
+        Assert.Single(config.Tools);
+        Assert.Equal(@"D:\Software\nodejs\opencode.cmd", config.Tools[0].Executable);
+    }
+
+    [Fact]
+    public void VerifyDeleteConfirmation_RespectsUserDecision()
+    {
+        var thread = new Thread(() =>
+        {
+            var vm = new CliManager.App.ViewModels.MainViewModel();
+            var tool = new CliManager.Core.Models.ToolItem { Name = "Test Tool", Executable = "test.exe" };
+            vm.Config.Tools.Add(tool);
+            vm.BuildTree();
+
+            var node = vm.RootNodes.FirstOrDefault(n => n.Id == tool.Id);
+            Assert.NotNull(node);
+            vm.SelectedNode = node;
+
+            // 1. 用户点击取消 -> 不删除
+            vm.ConfirmDeleteHandler = (msg, title) => false;
+            vm.DeleteCurrentCommand.Execute(null);
+            Assert.NotNull(vm.SelectedNode);
+            Assert.Contains(vm.Config.Tools, t => t.Id == tool.Id);
+
+            // 2. 用户点击确认 -> 执行删除
+            vm.ConfirmDeleteHandler = (msg, title) => true;
+            vm.DeleteCurrentCommand.Execute(null);
+            Assert.NotEqual(tool.Id, vm.SelectedNode?.Id);
+            Assert.DoesNotContain(vm.Config.Tools, t => t.Id == tool.Id);
+        });
+
+        thread.SetApartmentState(ApartmentState.STA);
+        thread.Start();
+        thread.Join();
+    }
 }

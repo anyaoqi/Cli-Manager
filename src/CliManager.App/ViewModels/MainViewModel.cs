@@ -64,6 +64,14 @@ public partial class MainViewModel : ObservableObject
     {
         Config = ConfigStorageService.LoadConfig();
 
+        // 自动清理/修复配置中历史残留的无扩展名或重复项（如 opencode vs opencode.cmd）
+        int countBefore = Config.Tools.Count;
+        CleanLegacyDuplicates(Config);
+        if (Config.Tools.Count != countBefore)
+        {
+            ConfigStorageService.SaveConfig(Config);
+        }
+
         // 清理历史残留的 AI 编程工具默认图标（按需求去掉默认图标值）
         foreach (var f in Config.Folders)
         {
@@ -178,11 +186,16 @@ public partial class MainViewModel : ObservableObject
             var existingExes = new HashSet<string>(
                 Config.Tools.Select(t => t.Executable),
                 StringComparer.OrdinalIgnoreCase);
+            var existingNames = new HashSet<string>(
+                Config.Tools.Select(t => t.Name),
+                StringComparer.OrdinalIgnoreCase);
 
             _unconfiguredDetectedTools.Clear();
             foreach (var d in detected)
             {
-                if (!existingExes.Contains(d.ExecutablePath))
+                if (!existingExes.Contains(d.ExecutablePath) &&
+                    !existingNames.Contains(d.Name) &&
+                    !existingNames.Contains(d.RecommendedDisplayName ?? ""))
                 {
                     _unconfiguredDetectedTools.Add(d);
                 }
@@ -238,6 +251,17 @@ public partial class MainViewModel : ObservableObject
         int startOrder = Config.Tools.Count > 0 ? Config.Tools.Max(t => t.Order) : 0;
         foreach (var d in _unconfiguredDetectedTools)
         {
+            string toolName = d.RecommendedDisplayName ?? d.Name;
+            bool alreadyExists = Config.Tools.Any(t =>
+                string.Equals(t.Executable, d.ExecutablePath, StringComparison.OrdinalIgnoreCase) ||
+                (string.Equals(t.ParentId, folder.Id, StringComparison.OrdinalIgnoreCase) &&
+                 string.Equals(t.Name, toolName, StringComparison.OrdinalIgnoreCase)));
+
+            if (alreadyExists)
+            {
+                continue;
+            }
+
             startOrder += 10;
 
             // 智能识别最佳图标路径（若为 .cmd/.bat 则优先探查同级同名 .exe）
@@ -262,7 +286,7 @@ public partial class MainViewModel : ObservableObject
 
             Config.Tools.Add(new ToolItem
             {
-                Name = d.RecommendedDisplayName ?? d.Name,
+                Name = toolName,
                 Executable = d.ExecutablePath,
                 Icon = iconPath,
                 Host = d.RecommendedHost ?? TerminalHosts.WindowsTerminal,
@@ -323,10 +347,35 @@ public partial class MainViewModel : ObservableObject
         UpdateLivePreview();
     }
 
+    /// <summary>
+    /// 删除确认委托（可由测试注入以模拟用户选择，避免阻塞自动化测试）。
+    /// </summary>
+    public Func<string, string, bool>? ConfirmDeleteHandler { get; set; }
+
     [RelayCommand]
     private void DeleteCurrent()
     {
         if (SelectedNode == null)
+        {
+            return;
+        }
+
+        string title = SelectedNode.IsFolder ? "删除文件夹确认" : "删除 CLI 工具确认";
+        string itemName = SelectedNode.Title;
+        string message = SelectedNode.IsFolder
+            ? $"确定要删除文件夹「{itemName}」及其包含的所有 CLI 工具吗？\n\n此操作在保存并同步后将从 Windows 右键菜单中移除。"
+            : $"确定要删除 CLI 工具「{itemName}」吗？\n\n此操作在保存并同步后将从 Windows 右键菜单中移除。";
+
+        bool confirmed = ConfirmDeleteHandler != null
+            ? ConfirmDeleteHandler(message, title)
+            : System.Windows.MessageBox.Show(
+                message,
+                title,
+                System.Windows.MessageBoxButton.YesNo,
+                System.Windows.MessageBoxImage.Question,
+                System.Windows.MessageBoxResult.No) == System.Windows.MessageBoxResult.Yes;
+
+        if (!confirmed)
         {
             return;
         }
@@ -544,5 +593,61 @@ public partial class MainViewModel : ObservableObject
         }
 
         return null;
+    }
+
+    /// <summary>
+    /// 清理历史导入残留的无扩展名或重复工具项（如 opencode 与 opencode.cmd 重复）。
+    /// </summary>
+    public static void CleanLegacyDuplicates(CliConfig config)
+    {
+        var validExtensions = new[] { ".exe", ".cmd", ".bat", ".ps1" };
+        var toRemove = new List<ToolItem>();
+
+        foreach (var tool in config.Tools)
+        {
+            if (string.IsNullOrWhiteSpace(tool.Executable))
+            {
+                continue;
+            }
+
+            string ext = Path.GetExtension(tool.Executable).ToLowerInvariant();
+            // 如果可执行文件缺少有效 Windows 扩展名（例如 node 生成的 Linux shell 脚本）
+            if (!validExtensions.Contains(ext))
+            {
+                // 检查是否已经存在带 .cmd 或 .exe 的有效对应项
+                bool hasValidSibling = config.Tools.Any(other =>
+                    other != tool &&
+                    !string.IsNullOrWhiteSpace(other.Executable) &&
+                    (string.Equals(other.Executable, tool.Executable + ".cmd", StringComparison.OrdinalIgnoreCase) ||
+                     string.Equals(other.Executable, tool.Executable + ".exe", StringComparison.OrdinalIgnoreCase) ||
+                     (string.Equals(other.Name, tool.Name, StringComparison.OrdinalIgnoreCase) &&
+                      string.Equals(other.ParentId, tool.ParentId, StringComparison.OrdinalIgnoreCase) &&
+                      validExtensions.Contains(Path.GetExtension(other.Executable).ToLowerInvariant()))));
+
+                if (hasValidSibling)
+                {
+                    toRemove.Add(tool);
+                }
+                else
+                {
+                    // 若无有效项，但磁盘上存在对应的 .cmd 或 .exe，则升级其路径为 Windows 可执行脚本
+                    string siblingCmd = tool.Executable + ".cmd";
+                    string siblingExe = tool.Executable + ".exe";
+                    if (File.Exists(siblingExe))
+                    {
+                        tool.Executable = siblingExe;
+                    }
+                    else if (File.Exists(siblingCmd))
+                    {
+                        tool.Executable = siblingCmd;
+                    }
+                }
+            }
+        }
+
+        foreach (var tool in toRemove)
+        {
+            config.Tools.Remove(tool);
+        }
     }
 }

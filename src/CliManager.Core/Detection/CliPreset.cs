@@ -74,6 +74,38 @@ public static class CliPresetRegistry
             MatchKeywords = ["gemini", "gemini.exe", "gemini.cmd"],
             RecommendedHost = "wt",
             DefaultArgs = []
+        },
+        new CliPreset
+        {
+            Id = "openclaude",
+            DisplayName = "OpenClaude",
+            MatchKeywords = ["openclaude", "openclaude.cmd", "openclaude.exe"],
+            RecommendedHost = "wt",
+            DefaultArgs = []
+        },
+        new CliPreset
+        {
+            Id = "qwen",
+            DisplayName = "Qwen CLI",
+            MatchKeywords = ["qwen", "qwen.cmd", "qwen.exe"],
+            RecommendedHost = "wt",
+            DefaultArgs = []
+        },
+        new CliPreset
+        {
+            Id = "omc",
+            DisplayName = "Oh My ClaudeCode",
+            MatchKeywords = ["omc", "omc.cmd", "omc.exe", "oh-my-claudecode", "oh-my-claudecode.cmd"],
+            RecommendedHost = "wt",
+            DefaultArgs = []
+        },
+        new CliPreset
+        {
+            Id = "agent-browser",
+            DisplayName = "Agent Browser",
+            MatchKeywords = ["agent-browser", "agent-browser.cmd", "agent-browser.exe"],
+            RecommendedHost = "wt",
+            DefaultArgs = []
         }
     ];
 
