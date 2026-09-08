@@ -6,15 +6,24 @@
                  Title="设置与存量迁移 - CliManager"
                  Width="760" Height="580"
                  WindowStartupLocation="CenterOwner"
+                 ExtendsContentIntoTitleBar="True"
                  WindowBackdropType="Mica">
-    <Grid Margin="20">
+    <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
-            <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
-        <TextBlock Grid.Row="0" Text="⚙️ 设置与迁移中心" FontSize="20" FontWeight="SemiBold" Margin="0,0,0,16" />
+        <ui:TitleBar Grid.Row="0" Title="设置与存量迁移 - CliManager" />
+
+        <Grid Grid.Row="1" Margin="20,10,20,20">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+
+            <TextBlock Grid.Row="0" Text="⚙️ 设置与迁移中心" FontSize="20" FontWeight="SemiBold" Margin="0,0,0,16" />
 
         <TabControl Grid.Row="1">
             <!-- 标签页 1：Win11 菜单模式 -->
@@ -116,5 +125,6 @@
         </TabControl>
 
         <ui:Button Grid.Row="2" Content="关闭" HorizontalAlignment="Right" Width="90" Click="OnCloseClicked" Margin="0,16,0,0" />
+    </Grid>
     </Grid>
 </ui:FluentWindow>

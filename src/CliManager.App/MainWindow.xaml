@@ -7,20 +7,26 @@
                  Width="1120" Height="740"
                  MinWidth="900" MinHeight="600"
                  WindowStartupLocation="CenterScreen"
+                 ExtendsContentIntoTitleBar="True"
                  WindowBackdropType="Mica">
 
-    <Grid Margin="16">
+    <Grid>
         <Grid.RowDefinitions>
-            <!-- 0: 顶部检测横幅 -->
+            <!-- 0: 标题栏 -->
             <RowDefinition Height="Auto" />
-            <!-- 1: 主工作区（左侧树 + 右侧编辑卡片） -->
+            <!-- 1: 顶部检测横幅 -->
+            <RowDefinition Height="Auto" />
+            <!-- 2: 主工作区（左侧树 + 右侧编辑卡片） -->
             <RowDefinition Height="*" />
-            <!-- 2: 底部实时预览与动作栏 -->
+            <!-- 3: 底部实时预览与动作栏 -->
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
+        <!-- 标题栏 -->
+        <ui:TitleBar Grid.Row="0" Title="⚡ CliManager - 开发终端右键管理工具" />
+
         <!-- 顶部自动检测横幅 -->
-        <Border Grid.Row="0" Margin="0,0,0,12" Padding="12,10"
+        <Border Grid.Row="1" Margin="16,0,16,12" Padding="12,10"
                 Background="{DynamicResource CardBackgroundFillColorSecondaryBrush}"
                 BorderBrush="{DynamicResource AccentStrokeColorDefaultBrush}"
                 BorderThickness="1" CornerRadius="6"
@@ -37,7 +43,7 @@
         </Border>
 
         <!-- 主工作区分栏 -->
-        <Grid Grid.Row="1">
+        <Grid Grid.Row="2" Margin="16,0,16,0">
             <Grid.ColumnDefinitions>
                 <!-- 左栏：结构编排与树形列表 -->
                 <ColumnDefinition Width="380" MinWidth="300" MaxWidth="500" />
@@ -298,7 +304,7 @@
         </Grid>
 
         <!-- 底部实时预览与动作栏 -->
-        <Grid Grid.Row="2" Margin="0,14,0,0">
+        <Grid Grid.Row="3" Margin="16,10,16,14">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*" />
                 <ColumnDefinition Width="Auto" />

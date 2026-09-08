@@ -1,4 +1,4 @@
-param(
+﻿param(
     [switch]$Publish,
     [switch]$SelfContained,
     [string]$Configuration = "Release"
