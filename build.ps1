@@ -33,7 +33,8 @@ if ($Publish) {
     $outDir = "artifacts/publish"
     Write-Host "`n[3/3] 正在发布应用至 $outDir ..." -ForegroundColor Yellow
     
-    $selfContainedArg = if ($SelfContained) { "--self-contained true" } else { "--self-contained false" }
+    # 默认采用自包含发布（包含运行时），杜绝系统 DOTNET_ROOT 指向旧版本 runtime 的报错
+    $selfContainedArg = if ($PSBoundParameters.ContainsKey('SelfContained') -and -not $SelfContained) { "--self-contained false" } else { "--self-contained true" }
     
     Invoke-Expression "dotnet publish src/CliManager.App/CliManager.App.csproj -c $Configuration -r win-x64 $selfContainedArg -o $outDir --nologo"
     
