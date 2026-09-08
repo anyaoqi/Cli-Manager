@@ -213,20 +213,39 @@ public partial class MainViewModel : ObservableObject
             folder = new FolderItem
             {
                 Name = "AI 编程工具",
+                Icon = "shell32.dll,305",
                 Order = 10,
                 Enabled = true
             };
             Config.Folders.Add(folder);
+        }
+        else if (string.IsNullOrWhiteSpace(folder.Icon))
+        {
+            folder.Icon = "shell32.dll,305";
         }
 
         int startOrder = Config.Tools.Count > 0 ? Config.Tools.Max(t => t.Order) : 0;
         foreach (var d in _unconfiguredDetectedTools)
         {
             startOrder += 10;
+
+            // 智能识别最佳图标路径（若为 .cmd/.bat 则优先探查同级同名 .exe）
+            string iconPath = d.ExecutablePath;
+            if (iconPath.EndsWith(".cmd", StringComparison.OrdinalIgnoreCase) ||
+                iconPath.EndsWith(".bat", StringComparison.OrdinalIgnoreCase))
+            {
+                string siblingExe = Path.ChangeExtension(iconPath, ".exe");
+                if (File.Exists(siblingExe))
+                {
+                    iconPath = siblingExe;
+                }
+            }
+
             Config.Tools.Add(new ToolItem
             {
                 Name = d.RecommendedDisplayName ?? d.Name,
                 Executable = d.ExecutablePath,
+                Icon = iconPath,
                 Host = d.RecommendedHost ?? TerminalHosts.WindowsTerminal,
                 ParentId = folder.Id,
                 Order = startOrder,

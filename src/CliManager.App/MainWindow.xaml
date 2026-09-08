@@ -119,31 +119,81 @@
                                   ScrollViewer.VerticalScrollBarVisibility="Auto">
                             <TreeView.ItemTemplate>
                                 <HierarchicalDataTemplate DataType="{x:Type vm:TreeNodeViewModel}" ItemsSource="{Binding Children}">
-                                    <Border Padding="4,6" CornerRadius="4">
-                                        <Grid Margin="0,2">
+                                    <Border CornerRadius="4">
+                                        <Border.Style>
+                                            <Style TargetType="Border">
+                                                <Setter Property="Padding" Value="6,5" />
+                                                <Setter Property="Margin" Value="0,1" />
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding IsFolder}" Value="True">
+                                                        <Setter Property="Background" Value="{DynamicResource CardBackgroundFillColorSecondaryBrush}" />
+                                                        <Setter Property="BorderBrush" Value="{DynamicResource ControlStrokeColorDefaultBrush}" />
+                                                        <Setter Property="BorderThickness" Value="1" />
+                                                        <Setter Property="Margin" Value="0,3,0,2" />
+                                                    </DataTrigger>
+                                                    <DataTrigger Binding="{Binding IsChild}" Value="True">
+                                                        <Setter Property="Margin" Value="20,1,0,1" />
+                                                        <Setter Property="Padding" Value="4,4" />
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </Border.Style>
+
+                                        <Grid Margin="0,1">
                                             <Grid.ColumnDefinitions>
+                                                <!-- 0: 树枝连接符 (仅子项显示) -->
                                                 <ColumnDefinition Width="Auto" />
+                                                <!-- 1: 图标 -->
                                                 <ColumnDefinition Width="Auto" />
+                                                <!-- 2: 启用勾选框 -->
+                                                <ColumnDefinition Width="Auto" />
+                                                <!-- 3: 标题 -->
                                                 <ColumnDefinition Width="*" />
+                                                <!-- 4: 拖拽把手与数量角标 -->
                                                 <ColumnDefinition Width="Auto" />
                                             </Grid.ColumnDefinitions>
 
+                                            <!-- 树枝分支连接符 └─ -->
+                                            <TextBlock Grid.Column="0" Text="└─ "
+                                                       FontFamily="Consolas, Cascadia Code, Courier New"
+                                                       FontSize="13" VerticalAlignment="Center"
+                                                       Foreground="{DynamicResource TextFillColorTertiaryBrush}"
+                                                       Visibility="{Binding IsChild, Converter={StaticResource BoolToVisibilityConverter}}"
+                                                       Margin="0,0,2,0" />
+
                                             <!-- 图标 -->
-                                            <Image Grid.Column="0" Source="{Binding IconSource}" Width="18" Height="18" Margin="0,0,8,0"
+                                            <Image Grid.Column="1" Source="{Binding IconSource}" Width="18" Height="18" Margin="0,0,8,0"
                                                    VerticalAlignment="Center" RenderOptions.BitmapScalingMode="HighQuality" />
 
                                             <!-- 启用勾选框 -->
-                                            <CheckBox Grid.Column="1" IsChecked="{Binding Enabled}" Margin="0,0,6,0" VerticalAlignment="Center" />
+                                            <CheckBox Grid.Column="2" IsChecked="{Binding Enabled}" Margin="0,0,6,0" VerticalAlignment="Center" />
 
                                             <!-- 标题 -->
-                                            <TextBlock Grid.Column="2" Text="{Binding Title}" VerticalAlignment="Center" FontWeight="Medium" TextTrimming="CharacterEllipsis" />
+                                            <TextBlock Grid.Column="3" Text="{Binding Title}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis">
+                                                <TextBlock.Style>
+                                                    <Style TargetType="TextBlock">
+                                                        <Setter Property="FontWeight" Value="Normal" />
+                                                        <Setter Property="FontSize" Value="13" />
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding IsFolder}" Value="True">
+                                                                <Setter Property="FontWeight" Value="SemiBold" />
+                                                                <Setter Property="FontSize" Value="13.5" />
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </TextBlock.Style>
+                                            </TextBlock>
 
                                             <!-- 拖拽把手与数量角标 -->
-                                            <StackPanel Grid.Column="3" Orientation="Horizontal" VerticalAlignment="Center" Margin="6,0,0,0">
-                                                <TextBlock Text="{Binding Children.Count, StringFormat='({0})'}"
-                                                           Foreground="{DynamicResource TextFillColorTertiaryBrush}"
-                                                           FontSize="11" Margin="0,0,6,0"
-                                                           Visibility="{Binding IsFolder, Converter={StaticResource BoolToVisibilityConverter}}" />
+                                            <StackPanel Grid.Column="4" Orientation="Horizontal" VerticalAlignment="Center" Margin="6,0,0,0">
+                                                <Border Background="{DynamicResource CardBackgroundFillColorDefaultBrush}"
+                                                        BorderBrush="{DynamicResource ControlStrokeColorDefaultBrush}"
+                                                        BorderThickness="1"
+                                                        CornerRadius="10" Padding="6,1" Margin="0,0,6,0"
+                                                        Visibility="{Binding IsFolder, Converter={StaticResource BoolToVisibilityConverter}}">
+                                                    <TextBlock Text="{Binding Children.Count, StringFormat='{}{0} 项'}"
+                                                               FontSize="11" Foreground="{DynamicResource AccentTextFillColorPrimaryBrush}" FontWeight="Medium" />
+                                                </Border>
                                                 <TextBlock Text="≡" FontWeight="Bold" Foreground="{DynamicResource TextFillColorTertiaryBrush}" Cursor="SizeAll" />
                                             </StackPanel>
                                         </Grid>

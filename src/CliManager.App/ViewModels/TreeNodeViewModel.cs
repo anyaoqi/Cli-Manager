@@ -38,11 +38,23 @@ public partial class TreeNodeViewModel : ObservableObject
     [ObservableProperty]
     private bool _isSelected;
 
+    [ObservableProperty]
+    private bool _isChild;
+
     public FolderItem? Folder { get; set; }
 
     public ToolItem? Tool { get; set; }
 
-    public TreeNodeViewModel? ParentNode { get; set; }
+    private TreeNodeViewModel? _parentNode;
+    public TreeNodeViewModel? ParentNode
+    {
+        get => _parentNode;
+        set
+        {
+            _parentNode = value;
+            IsChild = value != null;
+        }
+    }
 
     public ObservableCollection<TreeNodeViewModel> Children { get; } = [];
 
@@ -57,7 +69,8 @@ public partial class TreeNodeViewModel : ObservableObject
             Enabled = folder.Enabled,
             Order = folder.Order,
             Folder = folder,
-            IconSource = ImageHelper.GetIconSource(folder.Icon)
+            IsChild = false,
+            IconSource = ImageHelper.GetIconSource(folder.Icon ?? "shell32.dll,3")
         };
         return node;
     }
@@ -74,7 +87,8 @@ public partial class TreeNodeViewModel : ObservableObject
             Order = tool.Order,
             Tool = tool,
             ParentNode = parent,
-            IconSource = ImageHelper.GetIconSource(tool.Icon ?? tool.Executable)
+            IsChild = parent != null,
+            IconSource = ImageHelper.GetIconSource(tool.Icon ?? tool.Executable ?? "cmd.exe")
         };
         return node;
     }
@@ -82,6 +96,10 @@ public partial class TreeNodeViewModel : ObservableObject
     public void RefreshIcon()
     {
         string? path = IconPath ?? (Tool?.Executable);
+        if (string.IsNullOrWhiteSpace(path))
+        {
+            path = IsFolder ? "shell32.dll,3" : "cmd.exe";
+        }
         ImageHelper.InvalidateCache(path);
         IconSource = ImageHelper.GetIconSource(path);
     }

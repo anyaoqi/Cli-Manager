@@ -45,4 +45,46 @@ public class LayoutVerificationTest
         thread.Start();
         thread.Join();
     }
+
+    [Fact]
+    public void VerifyToolEditorLoadPreservesParentIdAndIcon()
+    {
+        var thread = new Thread(() =>
+        {
+            var folder = new CliManager.Core.Models.FolderItem
+            {
+                Id = "ai-folder-guid",
+                Name = "AI 编程工具"
+            };
+            var tool = new CliManager.Core.Models.ToolItem
+            {
+                Id = "tool-guid",
+                Name = "Claude Code",
+                ParentId = "ai-folder-guid",
+                Icon = @"C:\test\claude.exe",
+                Executable = @"C:\test\claude.exe"
+            };
+
+            var editor = new CliManager.App.ViewModels.ToolEditorViewModel();
+            bool callbackInvoked = false;
+
+            editor.Load(tool, [folder], () =>
+            {
+                callbackInvoked = true;
+            });
+
+            // Must NOT have triggered callback or wiped out data during Load
+            Assert.False(callbackInvoked);
+            Assert.Equal("ai-folder-guid", tool.ParentId);
+            Assert.Equal(@"C:\test\claude.exe", tool.Icon);
+            Assert.Equal(@"C:\test\claude.exe", tool.Executable);
+            Assert.NotNull(editor.SelectedFolder);
+            Assert.Equal("ai-folder-guid", editor.SelectedFolder.Id);
+            Assert.Equal(@"C:\test\claude.exe", editor.Icon);
+        });
+
+        thread.SetApartmentState(ApartmentState.STA);
+        thread.Start();
+        thread.Join();
+    }
 }

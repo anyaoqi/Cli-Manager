@@ -64,41 +64,50 @@ public partial class ToolEditorViewModel : ObservableObject
 
     private ToolItem? _currentTool;
     private Action? _onChangedCallback;
+    private bool _isLoading;
 
     public void Load(ToolItem tool, IEnumerable<FolderItem> folders, Action? onChanged = null)
     {
-        _currentTool = tool;
-        _onChangedCallback = onChanged;
-
-        Name = tool.Name;
-        Icon = tool.Icon;
-        Executable = tool.Executable;
-        ArgsText = string.Join(" ", tool.Args);
-        Host = tool.Host;
-        CustomTemplate = tool.CustomTemplate;
-        KeepOpen = tool.KeepOpen;
-        Enabled = tool.Enabled;
-        IsCustomHost = string.Equals(Host, TerminalHosts.Custom, StringComparison.OrdinalIgnoreCase);
-
-        // 加载文件夹下拉项
-        FolderOptions.Clear();
-        FolderOptions.Add(new FolderOption(null, "📁 一级根菜单直出"));
-        foreach (var f in folders)
+        _isLoading = true;
+        try
         {
-            FolderOptions.Add(new FolderOption(f.Id, $"📂 {f.Name}"));
+            _currentTool = tool;
+            _onChangedCallback = onChanged;
+
+            Name = tool.Name;
+            Icon = tool.Icon;
+            Executable = tool.Executable;
+            ArgsText = string.Join(" ", tool.Args);
+            Host = tool.Host;
+            CustomTemplate = tool.CustomTemplate;
+            KeepOpen = tool.KeepOpen;
+            Enabled = tool.Enabled;
+            IsCustomHost = string.Equals(Host, TerminalHosts.Custom, StringComparison.OrdinalIgnoreCase);
+
+            // 加载文件夹下拉项
+            FolderOptions.Clear();
+            FolderOptions.Add(new FolderOption(null, "📁 一级根菜单直出"));
+            foreach (var f in folders)
+            {
+                FolderOptions.Add(new FolderOption(f.Id, $"📂 {f.Name}"));
+            }
+
+            SelectedFolder = FolderOptions.FirstOrDefault(opt => opt.Id == tool.ParentId) ?? FolderOptions[0];
+
+            // 环境变量
+            EnvList.Clear();
+            foreach (var (k, v) in tool.Env)
+            {
+                EnvList.Add(new EnvVarItemViewModel(k, v));
+            }
+
+            RefreshIcon();
+            RecomputePreview();
         }
-
-        SelectedFolder = FolderOptions.FirstOrDefault(opt => opt.Id == tool.ParentId) ?? FolderOptions[0];
-
-        // 环境变量
-        EnvList.Clear();
-        foreach (var (k, v) in tool.Env)
+        finally
         {
-            EnvList.Add(new EnvVarItemViewModel(k, v));
+            _isLoading = false;
         }
-
-        RefreshIcon();
-        RecomputePreview();
     }
 
     public void ApplyToModel()
@@ -148,6 +157,11 @@ public partial class ToolEditorViewModel : ObservableObject
 
     private void OnFieldChanged()
     {
+        if (_isLoading)
+        {
+            return;
+        }
+
         ApplyToModel();
         RecomputePreview();
         _onChangedCallback?.Invoke();

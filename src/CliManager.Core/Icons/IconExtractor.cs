@@ -27,7 +27,7 @@ public static partial class IconExtractor
             return null;
         }
 
-        string cleanPath = iconPathWithIndex.Trim();
+        string cleanPath = Environment.ExpandEnvironmentVariables(iconPathWithIndex.Trim());
         int iconIndex = 0;
 
         // 解析 path,index 形式
@@ -37,10 +37,22 @@ public static partial class IconExtractor
             iconIndex = parsedIndex;
             cleanPath = cleanPath[..commaIndex].Trim().Trim('"');
         }
+        else
+        {
+            cleanPath = cleanPath.Trim('"');
+        }
 
         if (!File.Exists(cleanPath))
         {
-            return null;
+            string sysCandidate = Path.Combine(Environment.SystemDirectory, cleanPath);
+            if (File.Exists(sysCandidate))
+            {
+                cleanPath = sysCandidate;
+            }
+            else
+            {
+                return null;
+            }
         }
 
         string ext = Path.GetExtension(cleanPath).ToLowerInvariant();

@@ -26,17 +26,26 @@ public partial class FolderEditorViewModel : ObservableObject
 
     private FolderItem? _currentFolder;
     private Action? _onChangedCallback;
+    private bool _isLoading;
 
     public void Load(FolderItem folder, Action? onChanged = null)
     {
-        _currentFolder = folder;
-        _onChangedCallback = onChanged;
+        _isLoading = true;
+        try
+        {
+            _currentFolder = folder;
+            _onChangedCallback = onChanged;
 
-        Name = folder.Name;
-        Icon = folder.Icon;
-        Enabled = folder.Enabled;
+            Name = folder.Name;
+            Icon = folder.Icon;
+            Enabled = folder.Enabled;
 
-        RefreshIcon();
+            RefreshIcon();
+        }
+        finally
+        {
+            _isLoading = false;
+        }
     }
 
     public void ApplyToModel()
@@ -57,6 +66,11 @@ public partial class FolderEditorViewModel : ObservableObject
 
     private void OnFieldChanged()
     {
+        if (_isLoading)
+        {
+            return;
+        }
+
         ApplyToModel();
         _onChangedCallback?.Invoke();
     }
