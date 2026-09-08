@@ -30,6 +30,12 @@ public class LayoutVerificationTest
             Assert.Equal(VerticalAlignment.Stretch, mainWorkspace.VerticalAlignment);
             Assert.Equal(VerticalAlignment.Stretch, leftCard.VerticalAlignment);
             Assert.Equal(VerticalAlignment.Stretch, rightCard.VerticalAlignment);
+
+            // Verify VerticalContentAlignment is Stretch
+            Assert.Equal(VerticalAlignment.Stretch, leftCard.VerticalContentAlignment);
+            Assert.Equal(VerticalAlignment.Stretch, rightCard.VerticalContentAlignment);
+            Assert.Equal(HorizontalAlignment.Stretch, leftCard.HorizontalContentAlignment);
+            Assert.Equal(HorizontalAlignment.Stretch, rightCard.HorizontalContentAlignment);
         });
 
         thread.SetApartmentState(ApartmentState.STA);

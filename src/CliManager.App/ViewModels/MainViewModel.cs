@@ -21,6 +21,9 @@ public partial class MainViewModel : ObservableObject
     public ObservableCollection<TreeNodeViewModel> RootNodes { get; } = [];
 
     [ObservableProperty]
+    private bool _hasRootNodes;
+
+    [ObservableProperty]
     private TreeNodeViewModel? _selectedNode;
 
     [ObservableProperty]
@@ -105,6 +108,8 @@ public partial class MainViewModel : ObservableObject
                 RootNodes.Add(TreeNodeViewModel.CreateToolNode(item.Tool, null));
             }
         }
+
+        HasRootNodes = RootNodes.Count > 0;
 
         // 默认选中第一个
         if (SelectedNode == null && RootNodes.Count > 0)

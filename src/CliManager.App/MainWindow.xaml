@@ -54,7 +54,7 @@
             </Grid.ColumnDefinitions>
 
             <!-- 左栏 -->
-            <ui:Card Grid.Column="0" Padding="12" VerticalAlignment="Stretch">
+            <ui:Card Grid.Column="0" Padding="12" VerticalAlignment="Stretch" VerticalContentAlignment="Stretch">
                 <Grid>
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto" />
@@ -73,57 +73,69 @@
                         </WrapPanel>
                     </StackPanel>
 
-                    <!-- 树形列表（支持拖拽） -->
-                    <TreeView Grid.Row="1" x:Name="MenuTree"
-                              ItemsSource="{Binding RootNodes}"
-                              SelectedItemChanged="OnTreeSelectedItemChanged"
-                              PreviewMouseLeftButtonDown="OnTreePreviewMouseLeftButtonDown"
-                              MouseMove="OnTreeMouseMove"
-                              DragOver="OnTreeDragOver"
-                              Drop="OnTreeDrop"
-                              AllowDrop="True"
-                              BorderThickness="0"
-                              ScrollViewer.VerticalScrollBarVisibility="Auto">
-                        <TreeView.ItemTemplate>
-                            <HierarchicalDataTemplate DataType="{x:Type vm:TreeNodeViewModel}" ItemsSource="{Binding Children}">
-                                <Border Padding="4,6" CornerRadius="4">
-                                    <Grid Margin="0,2">
-                                        <Grid.ColumnDefinitions>
-                                            <ColumnDefinition Width="Auto" />
-                                            <ColumnDefinition Width="Auto" />
-                                            <ColumnDefinition Width="*" />
-                                            <ColumnDefinition Width="Auto" />
-                                        </Grid.ColumnDefinitions>
+                    <!-- 树形列表（支持拖拽）与空状态提示 -->
+                    <Grid Grid.Row="1">
+                        <TreeView x:Name="MenuTree"
+                                  ItemsSource="{Binding RootNodes}"
+                                  SelectedItemChanged="OnTreeSelectedItemChanged"
+                                  PreviewMouseLeftButtonDown="OnTreePreviewMouseLeftButtonDown"
+                                  MouseMove="OnTreeMouseMove"
+                                  DragOver="OnTreeDragOver"
+                                  Drop="OnTreeDrop"
+                                  AllowDrop="True"
+                                  BorderThickness="0"
+                                  ScrollViewer.VerticalScrollBarVisibility="Auto">
+                            <TreeView.ItemTemplate>
+                                <HierarchicalDataTemplate DataType="{x:Type vm:TreeNodeViewModel}" ItemsSource="{Binding Children}">
+                                    <Border Padding="4,6" CornerRadius="4">
+                                        <Grid Margin="0,2">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="Auto" />
+                                                <ColumnDefinition Width="Auto" />
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="Auto" />
+                                            </Grid.ColumnDefinitions>
 
-                                        <!-- 图标 -->
-                                        <Image Grid.Column="0" Source="{Binding IconSource}" Width="18" Height="18" Margin="0,0,8,0"
-                                               VerticalAlignment="Center" RenderOptions.BitmapScalingMode="HighQuality" />
+                                            <!-- 图标 -->
+                                            <Image Grid.Column="0" Source="{Binding IconSource}" Width="18" Height="18" Margin="0,0,8,0"
+                                                   VerticalAlignment="Center" RenderOptions.BitmapScalingMode="HighQuality" />
 
-                                        <!-- 启用勾选框 -->
-                                        <CheckBox Grid.Column="1" IsChecked="{Binding Enabled}" Margin="0,0,6,0" VerticalAlignment="Center" />
+                                            <!-- 启用勾选框 -->
+                                            <CheckBox Grid.Column="1" IsChecked="{Binding Enabled}" Margin="0,0,6,0" VerticalAlignment="Center" />
 
-                                        <!-- 标题 -->
-                                        <TextBlock Grid.Column="2" Text="{Binding Title}" VerticalAlignment="Center" FontWeight="Medium" TextTrimming="CharacterEllipsis" />
+                                            <!-- 标题 -->
+                                            <TextBlock Grid.Column="2" Text="{Binding Title}" VerticalAlignment="Center" FontWeight="Medium" TextTrimming="CharacterEllipsis" />
 
-                                        <!-- 拖拽把手与数量角标 -->
-                                        <StackPanel Grid.Column="3" Orientation="Horizontal" VerticalAlignment="Center" Margin="6,0,0,0">
-                                            <TextBlock Text="{Binding Children.Count, StringFormat='({0})'}"
-                                                       Foreground="{DynamicResource TextFillColorTertiaryBrush}"
-                                                       FontSize="11" Margin="0,0,6,0"
-                                                       Visibility="{Binding IsFolder, Converter={StaticResource BoolToVisibilityConverter}}" />
-                                            <TextBlock Text="≡" FontWeight="Bold" Foreground="{DynamicResource TextFillColorTertiaryBrush}" Cursor="SizeAll" />
-                                        </StackPanel>
-                                    </Grid>
-                                </Border>
-                            </HierarchicalDataTemplate>
-                        </TreeView.ItemTemplate>
-                        <TreeView.ItemContainerStyle>
-                            <Style TargetType="TreeViewItem" BasedOn="{StaticResource {x:Type TreeViewItem}}">
-                                <Setter Property="IsExpanded" Value="{Binding IsExpanded, Mode=TwoWay}" />
-                                <Setter Property="IsSelected" Value="{Binding IsSelected, Mode=TwoWay}" />
-                            </Style>
-                        </TreeView.ItemContainerStyle>
-                    </TreeView>
+                                            <!-- 拖拽把手与数量角标 -->
+                                            <StackPanel Grid.Column="3" Orientation="Horizontal" VerticalAlignment="Center" Margin="6,0,0,0">
+                                                <TextBlock Text="{Binding Children.Count, StringFormat='({0})'}"
+                                                           Foreground="{DynamicResource TextFillColorTertiaryBrush}"
+                                                           FontSize="11" Margin="0,0,6,0"
+                                                           Visibility="{Binding IsFolder, Converter={StaticResource BoolToVisibilityConverter}}" />
+                                                <TextBlock Text="≡" FontWeight="Bold" Foreground="{DynamicResource TextFillColorTertiaryBrush}" Cursor="SizeAll" />
+                                            </StackPanel>
+                                        </Grid>
+                                    </Border>
+                                </HierarchicalDataTemplate>
+                            </TreeView.ItemTemplate>
+                            <TreeView.ItemContainerStyle>
+                                <Style TargetType="TreeViewItem" BasedOn="{StaticResource {x:Type TreeViewItem}}">
+                                    <Setter Property="IsExpanded" Value="{Binding IsExpanded, Mode=TwoWay}" />
+                                    <Setter Property="IsSelected" Value="{Binding IsSelected, Mode=TwoWay}" />
+                                </Style>
+                            </TreeView.ItemContainerStyle>
+                        </TreeView>
+
+                        <!-- 空状态引导提示 -->
+                        <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center" Margin="16"
+                                    Visibility="{Binding HasRootNodes, Converter={StaticResource InverseBoolToVisibilityConverter}}">
+                            <TextBlock Text="暂无菜单项" HorizontalAlignment="Center" FontWeight="SemiBold" Margin="0,0,0,6"
+                                       Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                            <TextBlock Text="点击上方【➕ 新建文件夹】或【➕ 添加工具】开始编排，也可直接点击顶部横幅一键导入本地发现的 CLI 工具"
+                                       TextWrapping="Wrap" HorizontalAlignment="Center" TextAlignment="Center" FontSize="12"
+                                       Foreground="{DynamicResource TextFillColorTertiaryBrush}" />
+                        </StackPanel>
+                    </Grid>
                 </Grid>
             </ui:Card>
 
@@ -131,7 +143,7 @@
             <GridSplitter Grid.Column="1" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Background="Transparent" />
 
             <!-- 右栏：详情配置 Inspector -->
-            <ui:Card Grid.Column="2" Padding="16" VerticalAlignment="Stretch">
+            <ui:Card Grid.Column="2" Padding="16" VerticalAlignment="Stretch" VerticalContentAlignment="Stretch">
                 <Grid>
                     <!-- 空白未选择提示 -->
                     <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center"
