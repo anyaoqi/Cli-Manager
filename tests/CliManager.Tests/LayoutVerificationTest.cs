@@ -14,8 +14,11 @@ public class LayoutVerificationTest
     {
         var thread = new Thread(() =>
         {
-            var app = new CliManager.App.App();
-            app.InitializeComponent();
+            if (Application.Current == null)
+            {
+                var app = new CliManager.App.App();
+                app.InitializeComponent();
+            }
             var window = new MainWindow();
             window.Measure(new Size(1120, 740));
             window.Arrange(new Rect(0, 0, 1120, 740));
@@ -33,6 +36,12 @@ public class LayoutVerificationTest
             Assert.Equal(VerticalAlignment.Stretch, mainWorkspace.VerticalAlignment);
             Assert.Equal(VerticalAlignment.Stretch, leftCard.VerticalAlignment);
             Assert.Equal(VerticalAlignment.Stretch, rightCard.VerticalAlignment);
+
+            // Verify left toolbar has 4 buttons (FolderAdd, Add, MoveUp, MoveDown), no delete button
+            var leftGrid = (Grid)leftCard.Content;
+            var leftHeader = (Grid)leftGrid.Children[0];
+            var leftToolbar = (StackPanel)leftHeader.Children[1];
+            Assert.Equal(4, leftToolbar.Children.Count);
 
             // Verify VerticalContentAlignment is Stretch
             Assert.Equal(VerticalAlignment.Stretch, leftCard.VerticalContentAlignment);

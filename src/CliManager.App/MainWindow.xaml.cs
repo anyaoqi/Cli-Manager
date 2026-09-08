@@ -30,6 +30,15 @@ public partial class MainWindow : FluentWindow
         }
     }
 
+    private void OnTreeKeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key == Key.Delete && ViewModel.DeleteCurrentCommand.CanExecute(null))
+        {
+            ViewModel.DeleteCurrentCommand.Execute(null);
+            e.Handled = true;
+        }
+    }
+
     private void OnTreePreviewMouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
         _dragStartPoint = e.GetPosition(this);
