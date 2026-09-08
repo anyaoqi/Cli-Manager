@@ -111,7 +111,10 @@ public sealed class RegistrySyncEngine
                 }
             }
 
-            // 6. 通知 Explorer 刷新
+            // 6. 同步免提权 HKLM 影子屏蔽（若当前受管工具接管了 HKLM 对应项，写入 HKCU 影子软禁用屏蔽原 HKLM 项）
+            SyncHklmShadowOverrides(baseKey, config);
+
+            // 7. 通知 Explorer 刷新
             NotifyShell();
         }
         catch (Exception ex)
@@ -138,7 +141,7 @@ public sealed class RegistrySyncEngine
         foreach (string subName in baseKey.GetSubKeyNames())
         {
             using var sub = baseKey.OpenSubKey(subName);
-            if (sub != null && IsManagedKey(sub))
+            if (sub != null && (IsManagedKey(sub) || IsShadowOverrideKey(sub)))
             {
                 baseKey.DeleteSubKeyTree(subName, throwOnMissingSubKey: false);
                 deleted++;
@@ -159,8 +162,9 @@ public sealed class RegistrySyncEngine
     {
         using var folderKey = parentKey.CreateSubKey(folderKeyName, writable: true);
 
-        // 设置父级级联属性
+        // 设置父级级联属性与显示文本（同时写入 MUIVerb 与 Default 键以保证全版本 Explorer 兼容）
         folderKey.SetValue(RegistryConstants.MuiVerbValueName, folder.Name, RegistryValueKind.String);
+        folderKey.SetValue("", folder.Name, RegistryValueKind.String);
         folderKey.SetValue(RegistryConstants.SubCommandsValueName, "", RegistryValueKind.String);
         folderKey.SetValue(RegistryConstants.ManagedValueName, 1, RegistryValueKind.DWord);
 
@@ -233,6 +237,7 @@ public sealed class RegistrySyncEngine
 
         using var toolKey = parentKey.CreateSubKey(toolKeyName, writable: true);
         toolKey.SetValue(RegistryConstants.MuiVerbValueName, tool.Name, RegistryValueKind.String);
+        toolKey.SetValue("", tool.Name, RegistryValueKind.String);
         toolKey.SetValue(RegistryConstants.ManagedValueName, 1, RegistryValueKind.DWord);
 
         if (!string.IsNullOrWhiteSpace(tool.Icon))
@@ -269,6 +274,92 @@ public sealed class RegistrySyncEngine
             return true;
         }
         return false;
+    }
+
+    private static bool IsShadowOverrideKey(RegistryKey key)
+    {
+        object? val = key.GetValue(RegistryConstants.ShadowOverrideValueName);
+        return val is int intVal && intVal == 1;
+    }
+
+    private void SyncHklmShadowOverrides(RegistryKey baseKey, CliConfig config)
+    {
+        try
+        {
+            using var hklmShell = Microsoft.Win32.Registry.LocalMachine.OpenSubKey(_basePath);
+            if (hklmShell == null)
+            {
+                return;
+            }
+
+            var managedExecutables = new HashSet<string>(
+                config.Tools
+                    .Where(t => t.Enabled && !string.IsNullOrWhiteSpace(t.Executable))
+                    .Select(t => Path.GetFileName(t.Executable)),
+                StringComparer.OrdinalIgnoreCase);
+
+            foreach (string hklmSubName in hklmShell.GetSubKeyNames())
+            {
+                using var hklmSub = hklmShell.OpenSubKey(hklmSubName);
+                if (hklmSub == null)
+                {
+                    continue;
+                }
+
+                // 检查 HKLM 项的 command 中是否包含某个受管工具的 exe
+                string? hklmCmd = null;
+                using (var cmdKey = hklmSub.OpenSubKey("command"))
+                {
+                    hklmCmd = cmdKey?.GetValue("") as string;
+                }
+
+                bool shouldShadow = false;
+                if (!string.IsNullOrWhiteSpace(hklmCmd))
+                {
+                    foreach (var exe in managedExecutables)
+                    {
+                        if (hklmCmd.Contains(exe, StringComparison.OrdinalIgnoreCase))
+                        {
+                            shouldShadow = true;
+                            break;
+                        }
+                    }
+                }
+
+                // 也支持按名称匹配
+                if (!shouldShadow)
+                {
+                    string? mui = hklmSub.GetValue(RegistryConstants.MuiVerbValueName) as string;
+                    string? def = hklmSub.GetValue("") as string;
+                    string hklmName = IndirectStringResolver.Resolve(!string.IsNullOrWhiteSpace(mui) ? mui : def, hklmSubName);
+
+                    if (config.Tools.Any(t => t.Enabled && (t.Name.Equals(hklmName, StringComparison.OrdinalIgnoreCase) || t.Name.Equals(hklmSubName, StringComparison.OrdinalIgnoreCase))))
+                    {
+                        shouldShadow = true;
+                    }
+                }
+
+                if (shouldShadow)
+                {
+                    using var shadowKey = baseKey.CreateSubKey(hklmSubName, writable: true);
+                    shadowKey.SetValue(RegistryConstants.LegacyDisableValueName, "", RegistryValueKind.String);
+                    shadowKey.SetValue(RegistryConstants.ShadowOverrideValueName, 1, RegistryValueKind.DWord);
+                }
+                else
+                {
+                    // 若此前曾创建过该 HKLM 项的影子屏蔽，但现在用户已删除该受管工具，则自动移除影子屏蔽恢复原有项
+                    using var existingShadow = baseKey.OpenSubKey(hklmSubName);
+                    if (existingShadow != null && IsShadowOverrideKey(existingShadow))
+                    {
+                        baseKey.DeleteSubKeyTree(hklmSubName, throwOnMissingSubKey: false);
+                    }
+                }
+            }
+        }
+        catch
+        {
+            // 忽略非特权环境下的探测异常
+        }
     }
 
     private string? CreateBackup(string backupDir, int keepCount)

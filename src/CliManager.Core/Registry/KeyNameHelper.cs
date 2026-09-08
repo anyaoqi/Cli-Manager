@@ -43,6 +43,12 @@ public static class KeyNameHelper
             }
         }
 
+        // 限制 slug 长度，避免注册表键名过长导致 Windows Explorer 截断/放弃枚举 (64 字符限制)
+        if (sb.Length > 24)
+        {
+            sb.Length = 24;
+        }
+
         // 提取 ID 的前 8 位短标识保证全局唯一
         string shortId = id.Replace("-", "");
         if (shortId.Length > 8)

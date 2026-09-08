@@ -22,6 +22,7 @@ public static class MigrationService
             Executable = item.ExtractedExecutable ?? string.Empty,
             Args = [.. item.ExtractedArgs],
             Host = item.InferredHost,
+            CustomTemplate = item.CustomTemplate,
             ParentId = parentFolderId,
             Order = order,
             Enabled = !item.IsDeadLink
@@ -63,6 +64,20 @@ public static class MigrationService
                 catch
                 {
                     // 忽略删除失败
+                }
+            }
+            // 如果是 HKLM 项，免提权下在 HKCU 写入同名软禁用影子项，屏蔽 HKLM 重复项
+            else if (item.Hive.Equals("HKLM", StringComparison.OrdinalIgnoreCase) && baseKey != null)
+            {
+                try
+                {
+                    using var shadowKey = baseKey.CreateSubKey(item.KeyName, writable: true);
+                    shadowKey.SetValue(RegistryConstants.LegacyDisableValueName, "", RegistryValueKind.String);
+                    shadowKey.SetValue(RegistryConstants.ShadowOverrideValueName, 1, RegistryValueKind.DWord);
+                }
+                catch
+                {
+                    // 忽略屏蔽失败
                 }
             }
 

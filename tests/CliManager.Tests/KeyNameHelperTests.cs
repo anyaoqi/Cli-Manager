@@ -23,4 +23,16 @@ public class KeyNameHelperTests
         Assert.DoesNotContain("/", slug);
         Assert.DoesNotContain("!", slug);
     }
+
+    [Fact]
+    public void GenerateSafeSlug_CapsLengthToPreventBufferOverflow()
+    {
+        string longName = new string('A', 100);
+        string slug = KeyNameHelper.GenerateSafeSlug(longName, "guid-12345678");
+        Assert.Equal(33, slug.Length);
+        Assert.StartsWith(new string('A', 24) + "_", slug);
+
+        string keyName = KeyNameHelper.GenerateKeyName(60, "guid-12345678", longName);
+        Assert.True(keyName.Length <= 40);
+    }
 }

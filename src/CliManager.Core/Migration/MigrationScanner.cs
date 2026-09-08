@@ -75,11 +75,13 @@ public static partial class MigrationScanner
             rawCommand = cmdKey?.GetValue("") as string;
         }
 
-        string displayName = !string.IsNullOrWhiteSpace(muiVerb)
+        string rawDisplayName = !string.IsNullOrWhiteSpace(muiVerb)
             ? muiVerb
             : !string.IsNullOrWhiteSpace(defaultValue)
                 ? defaultValue
                 : keyName;
+
+        string displayName = IndirectStringResolver.Resolve(rawDisplayName, fallback: keyName);
 
         var item = new LegacyMenuItem
         {
@@ -149,42 +151,59 @@ public static partial class MigrationScanner
     {
         string cmd = item.RawCommand!;
 
-        // 推导终端类型
-        if (cmd.StartsWith("wt.exe", StringComparison.OrdinalIgnoreCase) || cmd.Contains("wt.exe ", StringComparison.OrdinalIgnoreCase))
+        // 优先提取绝对路径
+        var match = FilePathPattern().Match(cmd);
+        string? targetExe = match.Success ? match.Groups[1].Value : null;
+
+        // 尝试匹配已知的 AI / CLI 预设
+        string matchedPresetToken = string.Empty;
+        string[] tokens = cmd.Split([' ', '&', '|', '"', '\''], StringSplitOptions.RemoveEmptyEntries);
+        foreach (string token in tokens.Reverse())
         {
-            item.InferredHost = TerminalHosts.WindowsTerminal;
-        }
-        else if (cmd.StartsWith("powershell", StringComparison.OrdinalIgnoreCase))
-        {
-            item.InferredHost = TerminalHosts.WindowsPowerShell;
-        }
-        else if (cmd.StartsWith("pwsh", StringComparison.OrdinalIgnoreCase))
-        {
-            item.InferredHost = TerminalHosts.PowerShell7;
-        }
-        else
-        {
-            item.InferredHost = TerminalHosts.Cmd;
+            var preset = CliPresetRegistry.FindMatch(token);
+            if (preset != null)
+            {
+                matchedPresetToken = token;
+                break;
+            }
         }
 
-        // 正则提取绝对路径
-        var match = FilePathPattern().Match(cmd);
-        if (match.Success)
+        if (!string.IsNullOrEmpty(matchedPresetToken))
         {
-            item.ExtractedExecutable = match.Groups[1].Value;
+            item.ExtractedExecutable = matchedPresetToken;
+            if (cmd.StartsWith("wt.exe", StringComparison.OrdinalIgnoreCase) || cmd.Contains("wt.exe ", StringComparison.OrdinalIgnoreCase))
+            {
+                item.InferredHost = TerminalHosts.WindowsTerminal;
+            }
+            else if (cmd.StartsWith("powershell", StringComparison.OrdinalIgnoreCase))
+            {
+                item.InferredHost = TerminalHosts.WindowsPowerShell;
+            }
+            else if (cmd.StartsWith("pwsh", StringComparison.OrdinalIgnoreCase))
+            {
+                item.InferredHost = TerminalHosts.PowerShell7;
+            }
+            else
+            {
+                item.InferredHost = TerminalHosts.Cmd;
+            }
+        }
+        else if (!string.IsNullOrWhiteSpace(targetExe))
+        {
+            // 通用存量项（如 Cursor, Trae, Cmder, Git GUI, Git Bash, Warp 等）
+            // 采用 CustomTemplate 完整保留原始命令，避免丢失复杂参数或强制包入黑窗口
+            item.ExtractedExecutable = targetExe;
+            item.InferredHost = TerminalHosts.Custom;
+            item.CustomTemplate = cmd;
         }
         else
         {
-            // 尝试提取常见的裸命令，如 && claude 或 && opencode
-            string[] tokens = cmd.Split([' ', '&', '|', '"', '\''], StringSplitOptions.RemoveEmptyEntries);
-            foreach (string token in tokens.Reverse())
+            string firstToken = tokens.Length > 0 ? tokens[0] : string.Empty;
+            if (!string.IsNullOrEmpty(firstToken))
             {
-                var preset = CliPresetRegistry.FindMatch(token);
-                if (preset != null)
-                {
-                    item.ExtractedExecutable = token;
-                    break;
-                }
+                item.ExtractedExecutable = firstToken;
+                item.InferredHost = TerminalHosts.Custom;
+                item.CustomTemplate = cmd;
             }
         }
     }

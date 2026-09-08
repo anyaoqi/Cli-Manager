@@ -67,4 +67,37 @@ public class MigrationTests : IDisposable
         var tool = MigrationService.ConvertToToolItem(legacy);
         Assert.False(tool.Enabled);
     }
+
+    [Fact]
+    public void IndirectStringResolver_ResolvesSystemStringsOrFallsBack()
+    {
+        // 普通字符串原样返回
+        Assert.Equal("Plain Text", IndirectStringResolver.Resolve("Plain Text"));
+
+        // 系统标准 MUI 字符串在 Windows 上解析为非空文字
+        string cmdResolved = IndirectStringResolver.Resolve("@shell32.dll,-8506", fallback: "cmd");
+        Assert.False(cmdResolved.StartsWith("@"));
+        Assert.NotEmpty(cmdResolved);
+
+        // 不存在的资源回退到 fallback
+        string fallbackResolved = IndirectStringResolver.Resolve("@nonexistent_lib.dll,-9999", fallback: "MyFallback");
+        Assert.Equal("MyFallback", fallbackResolved);
+    }
+
+    [Fact]
+    public void ConvertToToolItem_PreservesCustomTemplate()
+    {
+        var legacy = new LegacyMenuItem
+        {
+            DisplayName = "Cursor",
+            ExtractedExecutable = @"D:\Software\cursor\Cursor.exe",
+            InferredHost = TerminalHosts.Custom,
+            CustomTemplate = @"""D:\Software\cursor\Cursor.exe"" ""%V""",
+            IsDeadLink = false
+        };
+
+        var tool = MigrationService.ConvertToToolItem(legacy);
+        Assert.Equal(TerminalHosts.Custom, tool.Host);
+        Assert.Equal(@"""D:\Software\cursor\Cursor.exe"" ""%V""", tool.CustomTemplate);
+    }
 }

@@ -39,4 +39,9 @@ public static class RegistryConstants
     /// Win11 经典菜单 CLSID 注册表路径（位于 HKCU）。
     /// </summary>
     public const string ClassicMenuClsidPath = @"Software\Classes\CLSID\{86ca1aa0-34aa-4e8b-a509-50c905bae2a2}\InprocServer32";
+
+    /// <summary>
+    /// 免提权屏蔽 HKLM 存量项的影子覆写特征标记（REG_DWORD = 1）。
+    /// </summary>
+    public const string ShadowOverrideValueName = "CliManager.ShadowOverride";
 }

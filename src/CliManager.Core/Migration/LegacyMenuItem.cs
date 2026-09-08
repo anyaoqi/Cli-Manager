@@ -38,6 +38,11 @@ public sealed class LegacyMenuItem
     public string InferredHost { get; set; } = "wt";
 
     /// <summary>
+    /// 当宿主为 Custom 时的启动模板。
+    /// </summary>
+    public string? CustomTemplate { get; set; }
+
+    /// <summary>
     /// 是否为死链（指向的文件在本地磁盘上不存在）。
     /// </summary>
     public bool IsDeadLink { get; set; }
