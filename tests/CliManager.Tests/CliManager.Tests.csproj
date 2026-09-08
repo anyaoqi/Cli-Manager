@@ -4,6 +4,7 @@
     <TargetFramework>net10.0-windows</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+    <UseWPF>true</UseWPF>
     <IsPackable>false</IsPackable>
   </PropertyGroup>
 
@@ -20,6 +21,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\CliManager.Core\CliManager.Core.csproj" />
+    <ProjectReference Include="..\..\src\CliManager.App\CliManager.App.csproj" />
   </ItemGroup>
 
 </Project>

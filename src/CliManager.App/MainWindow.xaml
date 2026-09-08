@@ -43,7 +43,7 @@
         </Border>
 
         <!-- 主工作区分栏 -->
-        <Grid Grid.Row="2" Margin="16,0,16,0">
+        <Grid Grid.Row="2" Margin="16,0,16,0" VerticalAlignment="Stretch">
             <Grid.ColumnDefinitions>
                 <!-- 左栏：结构编排与树形列表 -->
                 <ColumnDefinition Width="380" MinWidth="300" MaxWidth="500" />
@@ -54,7 +54,7 @@
             </Grid.ColumnDefinitions>
 
             <!-- 左栏 -->
-            <ui:Card Grid.Column="0" Padding="12">
+            <ui:Card Grid.Column="0" Padding="12" VerticalAlignment="Stretch">
                 <Grid>
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto" />
@@ -128,10 +128,10 @@
             </ui:Card>
 
             <!-- 拖拽分割条 -->
-            <GridSplitter Grid.Column="1" HorizontalAlignment="Stretch" Background="Transparent" />
+            <GridSplitter Grid.Column="1" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Background="Transparent" />
 
             <!-- 右栏：详情配置 Inspector -->
-            <ui:Card Grid.Column="2" Padding="16">
+            <ui:Card Grid.Column="2" Padding="16" VerticalAlignment="Stretch">
                 <Grid>
                     <!-- 空白未选择提示 -->
                     <StackPanel VerticalAlignment="Center" HorizontalAlignment="Center"
@@ -316,7 +316,7 @@
             </ui:Card>
 
             <!-- 动作按钮 -->
-            <StackPanel Grid.Column="1" Orientation="Horizontal">
+            <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
                 <ui:Button Content="⚙️ 设置与迁移" Click="OnOpenSettingsClicked" Margin="0,0,10,0" />
                 <ui:Button Content="💾 保存并同步到右键菜单" Appearance="Primary" Command="{Binding SaveAndSyncCommand}" />
             </StackPanel>

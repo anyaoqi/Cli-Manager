@@ -1,4 +1,4 @@
-﻿param(
+param(
     [switch]$Publish,
     [switch]$SelfContained,
     [string]$Configuration = "Release"
@@ -32,6 +32,9 @@ Write-Host "✅ 编译成功！" -ForegroundColor Green
 if ($Publish) {
     $outDir = "artifacts/publish"
     Write-Host "`n[3/3] 正在发布应用至 $outDir ..." -ForegroundColor Yellow
+    
+    # 停止正在运行的实例以避免文件锁占用
+    Get-Process CliManager.App -ErrorAction SilentlyContinue | Stop-Process -Force
     
     # 默认采用自包含发布（包含运行时），杜绝系统 DOTNET_ROOT 指向旧版本 runtime 的报错
     $selfContainedArg = if ($PSBoundParameters.ContainsKey('SelfContained') -and -not $SelfContained) { "--self-contained false" } else { "--self-contained true" }
