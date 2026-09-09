@@ -1,9 +1,13 @@
 param(
     [switch]$Publish,
     [switch]$Installer,
+    [switch]$Zip,
     [switch]$SelfContained,
+    [string]$AppVersion = "0.0.1",
     [string]$Configuration = "Release"
 )
+
+$cleanVersion = $AppVersion.TrimStart('v', 'V')
 
 $ErrorActionPreference = "Stop"
 
@@ -30,9 +34,9 @@ if ($LASTEXITCODE -ne 0) {
 Write-Host "✅ 编译成功！" -ForegroundColor Green
 
 # 3. 发布
-if ($Publish -or $Installer) {
+if ($Publish -or $Installer -or $Zip) {
     $outDir = "artifacts/publish"
-    Write-Host "`n[3/3] 正在发布应用至 $outDir ..." -ForegroundColor Yellow
+    Write-Host "`n[3/3] 正在发布应用至 $outDir (Version: $cleanVersion) ..." -ForegroundColor Yellow
     
     # 停止正在运行的实例以避免文件锁占用
     Get-Process CliManager.App -ErrorAction SilentlyContinue | Stop-Process -Force
@@ -40,7 +44,7 @@ if ($Publish -or $Installer) {
     # 默认采用自包含发布（包含运行时），杜绝系统 DOTNET_ROOT 指向旧版本 runtime 的报错
     $selfContainedArg = if ($PSBoundParameters.ContainsKey('SelfContained') -and -not $SelfContained) { "--self-contained false" } else { "--self-contained true" }
     
-    Invoke-Expression "dotnet publish src/CliManager.App/CliManager.App.csproj -c $Configuration -r win-x64 $selfContainedArg -o $outDir --nologo"
+    Invoke-Expression "dotnet publish src/CliManager.App/CliManager.App.csproj -c $Configuration -r win-x64 $selfContainedArg -p:Version=$cleanVersion -o $outDir --nologo"
     
     if ($LASTEXITCODE -ne 0) {
         Write-Error "发布失败！"
@@ -50,9 +54,20 @@ if ($Publish -or $Installer) {
     Write-Host "✅ 发布完成！产物路径: $outDir" -ForegroundColor Green
 }
 
-# 4. 生成 EXE 安装包
+# 4. 生成便携版 ZIP 压缩包
+if ($Zip) {
+    $releaseDir = "artifacts/release"
+    if (-not (Test-Path $releaseDir)) { New-Item -ItemType Directory -Path $releaseDir -Force }
+    $zipPath = Join-Path $releaseDir "CliManager-v$cleanVersion-win-x64-portable.zip"
+    Write-Host "`n[Zip] 正在生成便携版压缩包至 $zipPath ..." -ForegroundColor Yellow
+    if (Test-Path $zipPath) { Remove-Item -Force $zipPath }
+    Compress-Archive -Path "artifacts/publish/*" -DestinationPath $zipPath -CompressionLevel Optimal
+    Write-Host "✅ 便携版压缩包生成完成！产物路径: $zipPath" -ForegroundColor Green
+}
+
+# 5. 生成 EXE 安装包
 if ($Installer) {
-    Write-Host "`n[4/4] 正在使用 Inno Setup 生成安装包..." -ForegroundColor Yellow
+    Write-Host "`n[Installer] 正在使用 Inno Setup 生成安装包 (Version: $cleanVersion)..." -ForegroundColor Yellow
     
     $isccCandidates = @(
         "$env:LOCALAPPDATA\Programs\Inno Setup 6\ISCC.exe",
@@ -71,12 +86,14 @@ if ($Installer) {
     }
     
     $issFile = "installer/setup.iss"
-    & "$iscc" "$issFile"
+    & "$iscc" "/DMyAppVersion=$cleanVersion" "$issFile"
     if ($LASTEXITCODE -ne 0) {
         Write-Error "安装包生成失败！"
         exit $LASTEXITCODE
     }
-    Write-Host "✅ 安装包生成完成！产物路径: artifacts/release/CliManager-v0.0.1-Setup.exe" -ForegroundColor Green
-} else {
-    Write-Host "`n提示: 可使用 .\build.ps1 -Publish 生成独立发布产物；或 .\build.ps1 -Installer 一键生成 EXE 安装包。" -ForegroundColor Gray
+    Write-Host "✅ 安装包生成完成！产物路径: artifacts/release/CliManager-v$cleanVersion-Setup.exe" -ForegroundColor Green
+}
+
+if (-not ($Publish -or $Installer -or $Zip)) {
+    Write-Host "`n提示: 可使用 .\build.ps1 -Publish 生成独立发布产物；`n      或 .\build.ps1 -Installer -Zip -AppVersion 0.0.2 一键生成发布压缩包与 EXE 安装包。" -ForegroundColor Gray
 }

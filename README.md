@@ -81,11 +81,14 @@ cli-right-menu
    ```
    发布产物将输出在 `artifacts/publish/` 目录下，双击 `CliManager.App.exe` 即可直接运行。
 
-4. **一键生成 EXE 安装包**：
+4. **一键生成发布压缩包与 EXE 安装包**：
    ```powershell
-   .\build.ps1 -Installer
+   .\build.ps1 -Installer -Zip -AppVersion 0.0.2
    ```
-   基于 Inno Setup 自动化打包，产物输出在 `artifacts/release/CliManager-v0.0.1-Setup.exe`，支持非管理员免提权安装、桌面与开始菜单快捷方式、双语引导界面及干净卸载。
+   产物输出至 `artifacts/release/`：包含便携版 ZIP 压缩包与基于 Inno Setup 自动化打包的单文件 EXE 安装包，支持非管理员免提权安装、桌面与开始菜单快捷方式、双语引导界面及干净卸载。
+
+5. **CI/CD 自动化持续交付**：
+   项目配置了 GitHub Actions 自动化流水线（`.github/workflows/release.yml`）。当向仓库推送版本标签（例如 `git tag v0.0.2 && git push origin v0.0.2`）时，云端工作流将自动触发编译、全量单测、打包 EXE 安装包与 ZIP 压缩包，并自动发布 GitHub Release 及生成 SHA-256 校验清单。
 
 ---
 

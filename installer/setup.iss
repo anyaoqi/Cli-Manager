@@ -1,5 +1,7 @@
 #define MyAppName "CliManager"
+#ifndef MyAppVersion
 #define MyAppVersion "0.0.1"
+#endif
 #define MyAppPublisher "anyaoqi"
 #define MyAppURL "https://github.com/anyaoqi/cli-right-menu"
 #define MyAppExeName "CliManager.App.exe"
