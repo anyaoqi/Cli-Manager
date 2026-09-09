@@ -100,7 +100,12 @@ public class RegistrySyncEngineTests : IDisposable
         {
             Assert.NotNull(fKey);
             Assert.Equal("AI 工具箱", fKey.GetValue(RegistryConstants.MuiVerbValueName));
-            Assert.Equal("", fKey.GetValue(RegistryConstants.SubCommandsValueName));
+            // 回归锁定：级联父键写 Default 值会导致 Explorer 无法展开子菜单
+            Assert.Null(fKey.GetValue(""));
+            Assert.Null(fKey.GetValue(RegistryConstants.SubCommandsValueName));
+            string? extKey = fKey.GetValue(RegistryConstants.ExtendedSubCommandsKeyValueName) as string;
+            Assert.NotNull(extKey);
+            Assert.EndsWith(folderKeyName, extKey);
             Assert.Equal(1, fKey.GetValue(RegistryConstants.ManagedValueName));
 
             using var shellKey = fKey.OpenSubKey("shell");
@@ -220,6 +225,141 @@ public class RegistrySyncEngineTests : IDisposable
             string[] remaining = baseKey.GetSubKeyNames();
             Assert.Single(remaining);
             Assert.Equal("SystemGit", remaining[0]);
+        }
+    }
+
+    [Fact]
+    public void Sync_WithHiddenHklmKeys_WritesShadowOverrideWithLegacyDisable()
+    {
+        var config = new CliConfig
+        {
+            Settings = new AppSettings
+            {
+                HiddenHklmKeys = ["AnyCode", "OldTool"]
+            }
+        };
+
+        var result = _engine.Sync(config);
+        Assert.True(result.Success);
+
+        using var baseKey = _rootKey.OpenSubKey(_testBasePath);
+        Assert.NotNull(baseKey);
+
+        using var anyCodeKey = baseKey.OpenSubKey("AnyCode");
+        Assert.NotNull(anyCodeKey);
+        Assert.Equal("", anyCodeKey.GetValue(RegistryConstants.LegacyDisableValueName));
+        Assert.Equal(1, anyCodeKey.GetValue(RegistryConstants.ShadowOverrideValueName));
+
+        using var oldToolKey = baseKey.OpenSubKey("OldTool");
+        Assert.NotNull(oldToolKey);
+        Assert.Equal("", oldToolKey.GetValue(RegistryConstants.LegacyDisableValueName));
+        Assert.Equal(1, oldToolKey.GetValue(RegistryConstants.ShadowOverrideValueName));
+    }
+
+    [Fact]
+    public void Sync_FolderWithoutEnabledChildren_OmitsCascadeValues()
+    {
+        var folder = new FolderItem
+        {
+            Id = "folder-e",
+            Name = "Empty Box",
+            Order = 10,
+            Enabled = true
+        };
+
+        var disabledChild = new ToolItem
+        {
+            Id = "tool-disabled",
+            Name = "Disabled Tool",
+            Executable = @"C:\tools\dis.exe",
+            Host = TerminalHosts.WindowsTerminal,
+            ParentId = folder.Id,
+            Order = 10,
+            Enabled = false
+        };
+
+        var result = _engine.Sync(new CliConfig { Folders = [folder], Tools = [disabledChild] });
+        Assert.True(result.Success);
+
+        using var baseKey = _rootKey.OpenSubKey(_testBasePath);
+        Assert.NotNull(baseKey);
+
+        string folderKeyName = Assert.Single(baseKey.GetSubKeyNames(), k => k.Contains("foldere"));
+        using var fKey = baseKey.OpenSubKey(folderKeyName);
+        Assert.NotNull(fKey);
+        Assert.Null(fKey.GetValue(RegistryConstants.ExtendedSubCommandsKeyValueName));
+        Assert.Null(fKey.GetValue(RegistryConstants.SubCommandsValueName));
+
+        // 子项仍保留（软禁用），重新启用后再次同步即可恢复级联
+        using var shellKey = fKey.OpenSubKey("shell");
+        Assert.NotNull(shellKey);
+        string childKeyName = Assert.Single(shellKey.GetSubKeyNames());
+        using var childKey = shellKey.OpenSubKey(childKeyName);
+        Assert.NotNull(childKey);
+        Assert.Equal("", childKey.GetValue(RegistryConstants.LegacyDisableValueName));
+    }
+
+    [Fact]
+    public void Sync_CleansUpLegacyContextMenusTree_KeepsThirdPartyEntries()
+    {
+        string legacyRootPath = RegistryConstants.LegacyContextMenusPath;
+        string staleByName = KeyNameHelper.GenerateKeyName(10, "folder-legacy", "Legacy Box", 3);
+        string staleByChildFlag = $"090_StaleByChild_{Guid.NewGuid():N}".Substring(0, 20);
+        string thirdParty = $"ThirdParty_{Guid.NewGuid():N}";
+
+        // 模拟历史版本遗留：与受管文件夹同名的键（无标记）；异名键 shell 子项带受管标记；第三方键无任何标记
+        try
+        {
+            using (var legacyRoot = _rootKey.CreateSubKey(legacyRootPath, writable: true))
+            {
+                using (var byName = legacyRoot.CreateSubKey(staleByName, writable: true))
+                {
+                    using var shell = byName.CreateSubKey("shell");
+                }
+
+                using (var byChild = legacyRoot.CreateSubKey(staleByChildFlag, writable: true))
+                {
+                    using var shell = byChild.CreateSubKey("shell");
+                    using var child = shell.CreateSubKey("010_Old_Child");
+                    child.SetValue(RegistryConstants.ManagedValueName, 1, RegistryValueKind.DWord);
+                }
+
+                using (var third = legacyRoot.CreateSubKey(thirdParty, writable: true))
+                {
+                    using var shell = third.CreateSubKey("shell");
+                    using var child = shell.CreateSubKey("SomeCommand");
+                }
+            }
+
+            var folder = new FolderItem { Id = "folder-legacy", Name = "Legacy Box", Order = 10 };
+            var legacyTool = new ToolItem
+            {
+                Id = "tool-legacy",
+                Name = "Legacy Tool",
+                Executable = @"C:\tools\legacy.exe",
+                ParentId = folder.Id,
+                Order = 10
+            };
+
+            var result = _engine.Sync(new CliConfig { Folders = [folder], Tools = [legacyTool] });
+            Assert.True(result.Success);
+
+            using (var checkRoot = _rootKey.OpenSubKey(legacyRootPath))
+            {
+                Assert.NotNull(checkRoot);
+                string[] remaining = checkRoot.GetSubKeyNames();
+
+                Assert.DoesNotContain(staleByName, remaining);
+                Assert.DoesNotContain(staleByChildFlag, remaining);
+                Assert.Contains(thirdParty, remaining);
+            }
+        }
+        finally
+        {
+            using var cleanupRoot = _rootKey.OpenSubKey(legacyRootPath, writable: true);
+            cleanupRoot?.DeleteSubKeyTree(staleByName, throwOnMissingSubKey: false);
+            cleanupRoot?.DeleteSubKeyTree(staleByChildFlag, throwOnMissingSubKey: false);
+            cleanupRoot?.DeleteSubKeyTree(thirdParty, throwOnMissingSubKey: false);
         }
     }
 }

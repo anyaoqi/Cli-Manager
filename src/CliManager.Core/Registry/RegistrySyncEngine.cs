@@ -79,6 +79,7 @@ public sealed class RegistrySyncEngine
             int width = Math.Max(3, topLevelItems.Count.ToString().Length + 1);
 
             var desiredManagedKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            var managedFolderKeyNames = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
             for (int i = 0; i < topLevelItems.Count; i++)
             {
@@ -89,6 +90,7 @@ public sealed class RegistrySyncEngine
                 {
                     string folderKeyName = KeyNameHelper.GenerateKeyName(normalizedOrder, item.Folder.Id, item.Folder.Name, width);
                     desiredManagedKeys.Add(folderKeyName);
+                    managedFolderKeyNames.Add(folderKeyName);
 
                     SyncFolder(baseKey, folderKeyName, item.Folder, config.Tools, resolvedWtPath, result);
                 }
@@ -111,10 +113,13 @@ public sealed class RegistrySyncEngine
                 }
             }
 
-            // 6. 同步免提权 HKLM 影子屏蔽（若当前受管工具接管了 HKLM 对应项，写入 HKCU 影子软禁用屏蔽原 HKLM 项）
+            // 6. 清理历史版本遗留的 Directory\ContextMenus 级联目标树（仅删除受管项，不影响其他软件）
+            CleanupLegacyContextMenus(managedFolderKeyNames, result);
+
+            // 7. 同步免提权 HKLM 影子屏蔽（若当前受管工具接管了 HKLM 对应项，写入 HKCU 影子软禁用屏蔽原 HKLM 项）
             SyncHklmShadowOverrides(baseKey, config);
 
-            // 7. 通知 Explorer 刷新
+            // 8. 通知 Explorer 刷新
             NotifyShell();
         }
         catch (Exception ex)
@@ -148,8 +153,70 @@ public sealed class RegistrySyncEngine
             }
         }
 
+        // 同步清理历史遗留的 Directory\ContextMenus 级联目标
+        CleanupLegacyContextMenus(new HashSet<string>(StringComparer.OrdinalIgnoreCase), new RegistrySyncResult());
+
         NotifyShell();
         return deleted;
+    }
+
+    /// <summary>
+    /// 清理历史版本写入 HKCU <c>Software\Classes\Directory\ContextMenus</c> 的级联目标遗留项。
+    /// 仅删除受管项（键名命中当前受管文件夹、或自身/shell 子项带受管标记），绝不影响其他软件的同名位置数据。
+    /// </summary>
+    private void CleanupLegacyContextMenus(HashSet<string> managedFolderKeyNames, RegistrySyncResult result)
+    {
+        try
+        {
+            using var legacyRoot = _rootKey.OpenSubKey(RegistryConstants.LegacyContextMenusPath, writable: true);
+            if (legacyRoot == null)
+            {
+                return;
+            }
+
+            foreach (string subName in legacyRoot.GetSubKeyNames())
+            {
+                bool isOurs = managedFolderKeyNames.Contains(subName);
+
+                if (!isOurs)
+                {
+                    using var sub = legacyRoot.OpenSubKey(subName);
+                    if (sub != null)
+                    {
+                        if (IsManagedKey(sub))
+                        {
+                            isOurs = true;
+                        }
+                        else
+                        {
+                            using var shellKey = sub.OpenSubKey("shell");
+                            if (shellKey != null)
+                            {
+                                foreach (string childName in shellKey.GetSubKeyNames())
+                                {
+                                    using var child = shellKey.OpenSubKey(childName);
+                                    if (child != null && IsManagedKey(child))
+                                    {
+                                        isOurs = true;
+                                        break;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                if (isOurs)
+                {
+                    legacyRoot.DeleteSubKeyTree(subName, throwOnMissingSubKey: false);
+                    result.DeletedCount++;
+                }
+            }
+        }
+        catch
+        {
+            // 遗留清理失败不阻塞主同步流程
+        }
     }
 
     private void SyncFolder(
@@ -162,10 +229,30 @@ public sealed class RegistrySyncEngine
     {
         using var folderKey = parentKey.CreateSubKey(folderKeyName, writable: true);
 
-        // 设置父级级联属性与显示文本（同时写入 MUIVerb 与 Default 键以保证全版本 Explorer 兼容）
+        // 先收集子级工具（需依据启用数量决定是否写入级联属性，避免 Explorer 渲染空子菜单）
+        var children = allTools.Where(t => t.ParentId == folder.Id).ToList();
+        children.Sort((a, b) => a.Order.CompareTo(b.Order));
+        bool hasEnabledChildren = children.Any(c => c.Enabled);
+
+        // 设置父级级联属性与显示文本。
+        // 注意：级联父键只能写 MUIVerb，绝不能写 Default 值 —— 实测 Win11 经典菜单中
+        // Default 与 ExtendedSubCommandsKey 并存时 Explorer 无法解析级联导致子菜单为空。
         folderKey.SetValue(RegistryConstants.MuiVerbValueName, folder.Name, RegistryValueKind.String);
-        folderKey.SetValue("", folder.Name, RegistryValueKind.String);
-        folderKey.SetValue(RegistryConstants.SubCommandsValueName, "", RegistryValueKind.String);
+        folderKey.DeleteValue("", throwOnMissingValue: false);
+
+        if (hasEnabledChildren)
+        {
+            string hkcrPath = GetHkcrRelativePath(_basePath, folderKeyName);
+            folderKey.SetValue(RegistryConstants.ExtendedSubCommandsKeyValueName, hkcrPath, RegistryValueKind.String);
+            folderKey.DeleteValue(RegistryConstants.SubCommandsValueName, throwOnMissingValue: false);
+        }
+        else
+        {
+            // 无启用子项时不写级联属性，Explorer 将其渲染为普通项而非空子菜单
+            folderKey.DeleteValue(RegistryConstants.ExtendedSubCommandsKeyValueName, throwOnMissingValue: false);
+            folderKey.DeleteValue(RegistryConstants.SubCommandsValueName, throwOnMissingValue: false);
+        }
+
         folderKey.SetValue(RegistryConstants.ManagedValueName, 1, RegistryValueKind.DWord);
 
         if (!string.IsNullOrWhiteSpace(folder.Icon))
@@ -189,8 +276,6 @@ public sealed class RegistrySyncEngine
 
         // 同步子级 shell 节点
         using var shellKey = folderKey.CreateSubKey("shell", writable: true);
-        var children = allTools.Where(t => t.ParentId == folder.Id).ToList();
-        children.Sort((a, b) => a.Order.CompareTo(b.Order));
 
         int childWidth = Math.Max(3, children.Count.ToString().Length + 1);
         var desiredChildKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
@@ -286,74 +371,109 @@ public sealed class RegistrySyncEngine
     {
         try
         {
+            var hiddenKeys = new HashSet<string>(config.Settings.HiddenHklmKeys, StringComparer.OrdinalIgnoreCase);
+
             using var hklmShell = Microsoft.Win32.Registry.LocalMachine.OpenSubKey(_basePath);
-            if (hklmShell == null)
+            if (hklmShell != null)
             {
-                return;
-            }
+                var managedExecutables = new HashSet<string>(
+                    config.Tools
+                        .Where(t => t.Enabled && !string.IsNullOrWhiteSpace(t.Executable))
+                        .Select(t => Path.GetFileName(t.Executable)),
+                    StringComparer.OrdinalIgnoreCase);
 
-            var managedExecutables = new HashSet<string>(
-                config.Tools
-                    .Where(t => t.Enabled && !string.IsNullOrWhiteSpace(t.Executable))
-                    .Select(t => Path.GetFileName(t.Executable)),
-                StringComparer.OrdinalIgnoreCase);
-
-            foreach (string hklmSubName in hklmShell.GetSubKeyNames())
-            {
-                using var hklmSub = hklmShell.OpenSubKey(hklmSubName);
-                if (hklmSub == null)
+                foreach (string hklmSubName in hklmShell.GetSubKeyNames())
                 {
-                    continue;
-                }
-
-                // 检查 HKLM 项的 command 中是否包含某个受管工具的 exe
-                string? hklmCmd = null;
-                using (var cmdKey = hklmSub.OpenSubKey("command"))
-                {
-                    hklmCmd = cmdKey?.GetValue("") as string;
-                }
-
-                bool shouldShadow = false;
-                if (!string.IsNullOrWhiteSpace(hklmCmd))
-                {
-                    foreach (var exe in managedExecutables)
+                    using var hklmSub = hklmShell.OpenSubKey(hklmSubName);
+                    if (hklmSub == null)
                     {
-                        if (hklmCmd.Contains(exe, StringComparison.OrdinalIgnoreCase))
+                        continue;
+                    }
+
+                    // 1. 显式隐藏列表中的项强制屏蔽
+                    bool shouldShadow = hiddenKeys.Contains(hklmSubName);
+
+                    // 2. 检查是否有受管工具记录了 OriginalHklmKey
+                    if (!shouldShadow)
+                    {
+                        if (config.Tools.Any(t => t.Enabled && string.Equals(t.OriginalHklmKey, hklmSubName, StringComparison.OrdinalIgnoreCase)))
                         {
                             shouldShadow = true;
-                            break;
                         }
                     }
-                }
 
-                // 也支持按名称匹配
-                if (!shouldShadow)
-                {
-                    string? mui = hklmSub.GetValue(RegistryConstants.MuiVerbValueName) as string;
-                    string? def = hklmSub.GetValue("") as string;
-                    string hklmName = IndirectStringResolver.Resolve(!string.IsNullOrWhiteSpace(mui) ? mui : def, hklmSubName);
-
-                    if (config.Tools.Any(t => t.Enabled && (t.Name.Equals(hklmName, StringComparison.OrdinalIgnoreCase) || t.Name.Equals(hklmSubName, StringComparison.OrdinalIgnoreCase))))
+                    // 3. 检查 HKLM 项的 command 中是否包含某个受管工具的 exe
+                    if (!shouldShadow)
                     {
-                        shouldShadow = true;
-                    }
-                }
+                        string? hklmCmd = null;
+                        using (var cmdKey = hklmSub.OpenSubKey("command"))
+                        {
+                            hklmCmd = cmdKey?.GetValue("") as string;
+                        }
 
-                if (shouldShadow)
-                {
-                    using var shadowKey = baseKey.CreateSubKey(hklmSubName, writable: true);
-                    shadowKey.SetValue(RegistryConstants.LegacyDisableValueName, "", RegistryValueKind.String);
-                    shadowKey.SetValue(RegistryConstants.ShadowOverrideValueName, 1, RegistryValueKind.DWord);
-                }
-                else
-                {
-                    // 若此前曾创建过该 HKLM 项的影子屏蔽，但现在用户已删除该受管工具，则自动移除影子屏蔽恢复原有项
+                        if (!string.IsNullOrWhiteSpace(hklmCmd))
+                        {
+                            foreach (var exe in managedExecutables)
+                            {
+                                if (hklmCmd.Contains(exe, StringComparison.OrdinalIgnoreCase))
+                                {
+                                    shouldShadow = true;
+                                    break;
+                                }
+                            }
+                        }
+                    }
+
+                    // 4. 也支持按名称匹配
+                    if (!shouldShadow)
+                    {
+                        string? mui = hklmSub.GetValue(RegistryConstants.MuiVerbValueName) as string;
+                        string? def = hklmSub.GetValue("") as string;
+                        string hklmName = IndirectStringResolver.Resolve(!string.IsNullOrWhiteSpace(mui) ? mui : def, hklmSubName);
+
+                        if (config.Tools.Any(t => t.Enabled && (t.Name.Equals(hklmName, StringComparison.OrdinalIgnoreCase) || t.Name.Equals(hklmSubName, StringComparison.OrdinalIgnoreCase))))
+                        {
+                            shouldShadow = true;
+                        }
+                    }
+
+                    // 检查 HKCU 中是否已有现存的影子屏蔽
                     using var existingShadow = baseKey.OpenSubKey(hklmSubName);
                     if (existingShadow != null && IsShadowOverrideKey(existingShadow))
                     {
-                        baseKey.DeleteSubKeyTree(hklmSubName, throwOnMissingSubKey: false);
+                        // 若现有影子键已被软禁用，但用户当前配置中未显式加入 HiddenHklmKeys，则自动纳入以防意外复显
+                        if (existingShadow.GetValue(RegistryConstants.LegacyDisableValueName) != null &&
+                            !config.Settings.HiddenHklmKeys.Contains(hklmSubName, StringComparer.OrdinalIgnoreCase))
+                        {
+                            config.Settings.HiddenHklmKeys.Add(hklmSubName);
+                            hiddenKeys.Add(hklmSubName);
+                            shouldShadow = true;
+                        }
+                    }
+
+                    if (shouldShadow)
+                    {
+                        using var shadowKey = baseKey.CreateSubKey(hklmSubName, writable: true);
+                        shadowKey.SetValue(RegistryConstants.LegacyDisableValueName, "", RegistryValueKind.String);
+                        shadowKey.SetValue(RegistryConstants.ShadowOverrideValueName, 1, RegistryValueKind.DWord);
+                    }
+                    else
+                    {
+                        // 仅当用户未隐藏该项且不再受管时才清除影子键恢复原有项
+                        if (existingShadow != null && IsShadowOverrideKey(existingShadow))
+                        {
+                            baseKey.DeleteSubKeyTree(hklmSubName, throwOnMissingSubKey: false);
+                        }
                     }
                 }
+            }
+
+            // 兜底确保所有 HiddenHklmKeys 均已被写入 LegacyDisable 影子屏蔽
+            foreach (string hiddenKey in hiddenKeys)
+            {
+                using var shadowKey = baseKey.CreateSubKey(hiddenKey, writable: true);
+                shadowKey.SetValue(RegistryConstants.LegacyDisableValueName, "", RegistryValueKind.String);
+                shadowKey.SetValue(RegistryConstants.ShadowOverrideValueName, 1, RegistryValueKind.DWord);
             }
         }
         catch
@@ -405,6 +525,15 @@ public sealed class RegistrySyncEngine
         {
             // 忽略清理失败
         }
+    }
+
+    private static string GetHkcrRelativePath(string basePath, string keyName)
+    {
+        const string prefix = @"Software\Classes\";
+        string relBase = basePath.StartsWith(prefix, StringComparison.OrdinalIgnoreCase)
+            ? basePath[prefix.Length..]
+            : basePath;
+        return string.IsNullOrEmpty(relBase) ? keyName : $"{relBase}\\{keyName}";
     }
 
     public static void NotifyShell()

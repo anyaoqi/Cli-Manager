@@ -97,8 +97,7 @@ public partial class MainWindow : FluentWindow
             if (source.Tool != null && targetNode.Folder != null)
             {
                 source.Tool.ParentId = targetNode.Folder.Id;
-                ViewModel.BuildTree();
-                ViewModel.SelectedNode = source;
+                ViewModel.CompleteDragReorder(source);
             }
         }
         else if (targetNode != null && targetNode != source)
@@ -110,16 +109,14 @@ public partial class MainWindow : FluentWindow
                 source.Tool.ParentId = targetParentId;
                 // 次序微调
                 source.Tool.Order = targetNode.Order + 1;
-                ViewModel.BuildTree();
-                ViewModel.SelectedNode = source;
+                ViewModel.CompleteDragReorder(source);
             }
         }
         else if (targetNode == null && !source.IsFolder && source.Tool != null)
         {
             // 拖到空白区域：移至顶级根菜单直出
             source.Tool.ParentId = null;
-            ViewModel.BuildTree();
-            ViewModel.SelectedNode = source;
+            ViewModel.CompleteDragReorder(source);
         }
 
         e.Handled = true;

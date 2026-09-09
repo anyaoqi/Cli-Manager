@@ -398,17 +398,88 @@ public partial class MainViewModel : ObservableObject
         if (SelectedNode.IsFolder && SelectedNode.Folder != null)
         {
             // 删除文件夹及其内部所有工具
+            var toolsInFolder = Config.Tools.Where(t => t.ParentId == SelectedNode.Folder.Id).ToList();
+            foreach (var t in toolsInFolder)
+            {
+                RecordDeletedHklmKey(t);
+            }
             Config.Tools.RemoveAll(t => t.ParentId == SelectedNode.Folder.Id);
             Config.Folders.Remove(SelectedNode.Folder);
         }
         else if (!SelectedNode.IsFolder && SelectedNode.Tool != null)
         {
+            RecordDeletedHklmKey(SelectedNode.Tool);
             Config.Tools.Remove(SelectedNode.Tool);
         }
 
         SelectedNode = null;
         BuildTree();
         UpdateLivePreview();
+    }
+
+    private void RecordDeletedHklmKey(ToolItem tool)
+    {
+        string? hklmKey = tool.OriginalHklmKey;
+        if (string.IsNullOrWhiteSpace(hklmKey))
+        {
+            hklmKey = FindMatchingHklmKey(tool);
+        }
+
+        if (!string.IsNullOrWhiteSpace(hklmKey))
+        {
+            if (!Config.Settings.HiddenHklmKeys.Contains(hklmKey, StringComparer.OrdinalIgnoreCase))
+            {
+                Config.Settings.HiddenHklmKeys.Add(hklmKey);
+            }
+        }
+    }
+
+    private static string? FindMatchingHklmKey(ToolItem tool)
+    {
+        try
+        {
+            using var hklmShell = Microsoft.Win32.Registry.LocalMachine.OpenSubKey(RegistryConstants.DefaultBackgroundShellPath);
+            if (hklmShell == null) return null;
+
+            string? toolExeName = !string.IsNullOrWhiteSpace(tool.Executable)
+                ? System.IO.Path.GetFileName(tool.Executable)
+                : null;
+
+            foreach (string subName in hklmShell.GetSubKeyNames())
+            {
+                using var sub = hklmShell.OpenSubKey(subName);
+                if (sub == null) continue;
+
+                if (subName.Equals(tool.Name, StringComparison.OrdinalIgnoreCase))
+                {
+                    return subName;
+                }
+
+                string? mui = sub.GetValue(RegistryConstants.MuiVerbValueName) as string;
+                string? def = sub.GetValue("") as string;
+                string hklmName = IndirectStringResolver.Resolve(!string.IsNullOrWhiteSpace(mui) ? mui : def, subName);
+                if (tool.Name.Equals(hklmName, StringComparison.OrdinalIgnoreCase))
+                {
+                    return subName;
+                }
+
+                if (!string.IsNullOrWhiteSpace(toolExeName))
+                {
+                    using var cmdKey = sub.OpenSubKey("command");
+                    string? cmd = cmdKey?.GetValue("") as string;
+                    if (!string.IsNullOrWhiteSpace(cmd) && cmd.Contains(toolExeName, StringComparison.OrdinalIgnoreCase))
+                    {
+                        return subName;
+                    }
+                }
+            }
+        }
+        catch
+        {
+            // 忽略非特权异常
+        }
+
+        return null;
     }
 
     [RelayCommand]
@@ -488,6 +559,20 @@ public partial class MainViewModel : ObservableObject
             source.Tool.ParentId = targetFolder?.Id;
         }
 
+        BuildTree();
+        SelectedNode = FindNode(source.Id);
+        UpdateLivePreview();
+    }
+
+    /// <summary>
+    /// 拖拽落下后调用：重建树、按 Id 重新选中新节点并刷新概览。
+    /// 必须重新按 Id 查找节点：BuildTree 会重建全部节点，旧节点引用已脱离树；
+    /// 若把 SelectedNode 设回旧引用则属性不变、选中事件不触发，右侧属性面板
+    /// 不会重新加载，保存时 ApplyToModel 会用面板里过期的"归属文件夹"把本次
+    /// 拖拽的 ParentId 改动覆盖回去。
+    /// </summary>
+    public void CompleteDragReorder(TreeNodeViewModel source)
+    {
         BuildTree();
         SelectedNode = FindNode(source.Id);
         UpdateLivePreview();

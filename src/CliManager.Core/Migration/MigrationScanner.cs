@@ -48,11 +48,35 @@ public static partial class MigrationScanner
                 continue;
             }
 
-            // 过滤掉本工具创建的受管项
+            // 过滤掉本工具创建的受管项与影子屏蔽项
             object? managed = subKey.GetValue(RegistryConstants.ManagedValueName);
             if (managed is int intVal && intVal == 1)
             {
                 continue;
+            }
+
+            object? shadow = subKey.GetValue(RegistryConstants.ShadowOverrideValueName);
+            if (shadow is int shadowVal && shadowVal == 1)
+            {
+                continue;
+            }
+
+            // 若扫描 HKLM，且 HKCU 中已存在同名影子键（已接管或已被用户屏蔽），则跳过
+            if (hiveName.Equals("HKLM", StringComparison.OrdinalIgnoreCase))
+            {
+                using var hkcuShell = Microsoft.Win32.Registry.CurrentUser.OpenSubKey(ShellPath);
+                if (hkcuShell != null)
+                {
+                    using var hkcuSub = hkcuShell.OpenSubKey(subName);
+                    if (hkcuSub != null)
+                    {
+                        object? hkcuShadow = hkcuSub.GetValue(RegistryConstants.ShadowOverrideValueName);
+                        if (hkcuShadow is int sVal && sVal == 1)
+                        {
+                            continue;
+                        }
+                    }
+                }
             }
 
             var item = ParseKey(subName, subKey, hiveName);

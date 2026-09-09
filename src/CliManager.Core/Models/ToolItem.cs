@@ -70,4 +70,9 @@ public sealed class ToolItem
     /// 目标挂载点，v0.0.1 固定为 ["DirectoryBackground"]。
     /// </summary>
     public List<string> Targets { get; set; } = ["DirectoryBackground"];
+
+    /// <summary>
+    /// 若此项来源于 HKLM 存量迁移，记录其原始注册表键名（如 AnyCode, Cursor 等），用于软删除和覆盖屏蔽。
+    /// </summary>
+    public string? OriginalHklmKey { get; set; }
 }

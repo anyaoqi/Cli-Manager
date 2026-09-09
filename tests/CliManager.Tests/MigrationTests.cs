@@ -100,4 +100,19 @@ public class MigrationTests : IDisposable
         Assert.Equal(TerminalHosts.Custom, tool.Host);
         Assert.Equal(@"""D:\Software\cursor\Cursor.exe"" ""%V""", tool.CustomTemplate);
     }
+
+    [Fact]
+    public void ConvertToToolItem_WhenFromHklm_PreservesOriginalHklmKey()
+    {
+        var legacy = new LegacyMenuItem
+        {
+            DisplayName = "AnyCode",
+            KeyName = "AnyCode",
+            Hive = "HKLM",
+            ExtractedExecutable = @"C:\VS\VSLauncher.exe"
+        };
+
+        var tool = MigrationService.ConvertToToolItem(legacy);
+        Assert.Equal("AnyCode", tool.OriginalHklmKey);
+    }
 }
