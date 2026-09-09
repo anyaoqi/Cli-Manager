@@ -14,4 +14,9 @@ public sealed class AppSettings
     /// 注册表备份保留份数。
     /// </summary>
     public int BackupKeepCount { get; set; } = 5;
+
+    /// <summary>
+    /// 用户主动删除/屏蔽的 HKLM 存量右键项列表（在 HKCU 下写入 LegacyDisable 持续屏蔽，永不复显）。
+    /// </summary>
+    public List<string> HiddenHklmKeys { get; set; } = [];
 }

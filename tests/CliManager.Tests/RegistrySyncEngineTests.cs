@@ -100,7 +100,10 @@ public class RegistrySyncEngineTests : IDisposable
         {
             Assert.NotNull(fKey);
             Assert.Equal("AI 工具箱", fKey.GetValue(RegistryConstants.MuiVerbValueName));
-            Assert.Equal("", fKey.GetValue(RegistryConstants.SubCommandsValueName));
+            Assert.Null(fKey.GetValue(RegistryConstants.SubCommandsValueName));
+            string? extKey = fKey.GetValue(RegistryConstants.ExtendedSubCommandsKeyValueName) as string;
+            Assert.NotNull(extKey);
+            Assert.EndsWith(folderKeyName, extKey);
             Assert.Equal(1, fKey.GetValue(RegistryConstants.ManagedValueName));
 
             using var shellKey = fKey.OpenSubKey("shell");
@@ -221,5 +224,33 @@ public class RegistrySyncEngineTests : IDisposable
             Assert.Single(remaining);
             Assert.Equal("SystemGit", remaining[0]);
         }
+    }
+
+    [Fact]
+    public void Sync_WithHiddenHklmKeys_WritesShadowOverrideWithLegacyDisable()
+    {
+        var config = new CliConfig
+        {
+            Settings = new AppSettings
+            {
+                HiddenHklmKeys = ["AnyCode", "OldTool"]
+            }
+        };
+
+        var result = _engine.Sync(config);
+        Assert.True(result.Success);
+
+        using var baseKey = _rootKey.OpenSubKey(_testBasePath);
+        Assert.NotNull(baseKey);
+
+        using var anyCodeKey = baseKey.OpenSubKey("AnyCode");
+        Assert.NotNull(anyCodeKey);
+        Assert.Equal("", anyCodeKey.GetValue(RegistryConstants.LegacyDisableValueName));
+        Assert.Equal(1, anyCodeKey.GetValue(RegistryConstants.ShadowOverrideValueName));
+
+        using var oldToolKey = baseKey.OpenSubKey("OldTool");
+        Assert.NotNull(oldToolKey);
+        Assert.Equal("", oldToolKey.GetValue(RegistryConstants.LegacyDisableValueName));
+        Assert.Equal(1, oldToolKey.GetValue(RegistryConstants.ShadowOverrideValueName));
     }
 }

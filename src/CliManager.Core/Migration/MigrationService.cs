@@ -25,7 +25,8 @@ public static class MigrationService
             CustomTemplate = item.CustomTemplate,
             ParentId = parentFolderId,
             Order = order,
-            Enabled = !item.IsDeadLink
+            Enabled = !item.IsDeadLink,
+            OriginalHklmKey = item.Hive.Equals("HKLM", StringComparison.OrdinalIgnoreCase) ? item.KeyName : null
         };
     }
 
