@@ -564,6 +564,20 @@ public partial class MainViewModel : ObservableObject
         UpdateLivePreview();
     }
 
+    /// <summary>
+    /// 拖拽落下后调用：重建树、按 Id 重新选中新节点并刷新概览。
+    /// 必须重新按 Id 查找节点：BuildTree 会重建全部节点，旧节点引用已脱离树；
+    /// 若把 SelectedNode 设回旧引用则属性不变、选中事件不触发，右侧属性面板
+    /// 不会重新加载，保存时 ApplyToModel 会用面板里过期的"归属文件夹"把本次
+    /// 拖拽的 ParentId 改动覆盖回去。
+    /// </summary>
+    public void CompleteDragReorder(TreeNodeViewModel source)
+    {
+        BuildTree();
+        SelectedNode = FindNode(source.Id);
+        UpdateLivePreview();
+    }
+
     [RelayCommand]
     private void SaveAndSync()
     {
