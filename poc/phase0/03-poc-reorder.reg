@@ -1,0 +1,21 @@
+Windows Registry Editor Version 5.00
+
+; POC-3 排序交换测试：Alpha 与 Charlie 互换顺序
+; 预期新顺序（按键名字典序）：010_Charlie → 020_Beta → 030_Alpha → 040_Percent → 050_W
+
+[HKEY_CURRENT_USER\Software\Classes\Directory\Background\shell\CliMgrPOC_A\shell\010_Charlie工具]
+"MUIVerb"="010 Charlie 工具 (powershell)"
+"Icon"="C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe"
+
+[HKEY_CURRENT_USER\Software\Classes\Directory\Background\shell\CliMgrPOC_A\shell\010_Charlie工具\command]
+@="powershell.exe -NoExit -Command \"$env:HTTP_PROXY='http://127.0.0.1:7899'; Set-Location -LiteralPath '%V'; Write-Host POC_A_030_PS_OK; Get-Location; Get-Item Env:HTTP_PROXY\""
+
+[HKEY_CURRENT_USER\Software\Classes\Directory\Background\shell\CliMgrPOC_A\shell\030_Alpha工具]
+"MUIVerb"="030 Alpha 工具 (cmd+env)"
+"Icon"="C:\\Windows\\System32\\cmd.exe"
+
+[HKEY_CURRENT_USER\Software\Classes\Directory\Background\shell\CliMgrPOC_A\shell\030_Alpha工具\command]
+@="cmd.exe /d /k pushd \"%V\" & set \"HTTP_PROXY=http://127.0.0.1:7899\" & cd & set HTTP_PROXY & echo POC_A_010_OK"
+
+[-HKEY_CURRENT_USER\Software\Classes\Directory\Background\shell\CliMgrPOC_A\shell\010_Alpha工具]
+[-HKEY_CURRENT_USER\Software\Classes\Directory\Background\shell\CliMgrPOC_A\shell\030_Charlie工具]

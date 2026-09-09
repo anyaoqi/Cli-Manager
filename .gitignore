@@ -1,6 +1,38 @@
-/src-tauri/target/
-/src-tauri/gen/schemas/
-node_modules/
-*.log
-Thumbs.db
-.DS_Store
+## Build results
+[Dd]ebug/
+[Dd]ebugPublic/
+[Rr]elease/
+[Rr]eleases/
+x64/
+x86/
+[Aa][Rr][Mm]/
+[Aa][Rr][Mm]64/
+bld/
+[Bb]in/
+[Oo]bj/
+[Ll]og/
+[Ll]ogs/
+
+## Visual Studio & VS Code
+.vs/
+.vscode/
+*.user
+*.userosscache
+*.sln.docstates
+.idea/
+
+## User-specific files
+*.rsuser
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+## Dependency directories
+packages/
+*.nuget.props
+*.nuget.targets
+
+## Backups and Artifacts
+artifacts/
+backups/
