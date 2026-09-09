@@ -7,7 +7,7 @@ param(
 $ErrorActionPreference = "Stop"
 
 Write-Host "========================================" -ForegroundColor Cyan
-Write-Host "  CliManager 构建脚本 (.NET 10)  " -ForegroundColor Cyan
+Write-Host "  CliManager 构建脚本 (.NET 8 LTS)  " -ForegroundColor Cyan
 Write-Host "========================================" -ForegroundColor Cyan
 
 # 1. 运行所有单元测试
