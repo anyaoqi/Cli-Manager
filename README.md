@@ -75,11 +75,17 @@ cli-right-menu
    dotnet test tests/CliManager.Tests/CliManager.Tests.csproj
    ```
 
-3. **一键构建并发布独立可执行程序**：
+3. **一键构建并发布独立免安装程序**：
    ```powershell
    .\build.ps1 -Publish
    ```
    发布产物将输出在 `artifacts/publish/` 目录下，双击 `CliManager.App.exe` 即可直接运行。
+
+4. **一键生成 EXE 安装包**：
+   ```powershell
+   .\build.ps1 -Installer
+   ```
+   基于 Inno Setup 自动化打包，产物输出在 `artifacts/release/CliManager-v0.0.1-Setup.exe`，支持非管理员免提权安装、桌面与开始菜单快捷方式、双语引导界面及干净卸载。
 
 ---
 
