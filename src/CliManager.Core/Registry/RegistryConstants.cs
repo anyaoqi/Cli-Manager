@@ -26,6 +26,11 @@ public static class RegistryConstants
     public const string ExtendedSubCommandsKeyValueName = "ExtendedSubCommandsKey";
 
     /// <summary>
+    /// 历史版本使用过的级联目标根路径（HKCU 相对路径），仅用于遗留数据清理。
+    /// </summary>
+    public const string LegacyContextMenusPath = @"Software\Classes\Directory\ContextMenus";
+
+    /// <summary>
     /// 菜单外显文字值名（REG_SZ）。
     /// </summary>
     public const string MuiVerbValueName = "MUIVerb";
