@@ -1,0 +1,71 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Version tag (e.g. v0.0.2)'
+        required: true
+        default: 'v0.0.2'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    name: Build and Release
+    runs-on: windows-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup .NET 8 SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Parse Version
+        id: version
+        shell: pwsh
+        run: |
+          $tag = if ('${{ github.event_name }}' -eq 'workflow_dispatch') { '${{ github.event.inputs.tag }}' } else { '${{ github.ref_name }}' }
+          $cleanVersion = $tag.TrimStart('v', 'V')
+          Write-Host "Detected Tag: $tag, Version: $cleanVersion"
+          "TAG=$tag" | Out-File -FilePath $env:GITHUB_ENV -Append
+          "VERSION=$cleanVersion" | Out-File -FilePath $env:GITHUB_ENV -Append
+
+      - name: Install Inno Setup
+        shell: pwsh
+        run: |
+          choco install innosetup -y --no-progress
+
+      - name: Run Build, Test, and Package
+        shell: pwsh
+        run: |
+          .\build.ps1 -Installer -Zip -AppVersion "$env:VERSION"
+
+      - name: Generate SHA-256 Checksums
+        shell: pwsh
+        run: |
+          $hashes = Get-FileHash "artifacts/release/*" | ForEach-Object { "$($_.Hash)  $($_.Path | Split-Path -Leaf)" }
+          $hashes | Out-File -FilePath "artifacts/release/SHA256SUMS.txt" -Encoding utf8
+          Write-Host "Calculated checksums:"
+          $hashes | ForEach-Object { Write-Host $_ }
+
+      - name: Create GitHub Release and Upload Assets
+        uses: softprops/action-gh-release@v2
+        with:
+          name: "CliManager ${{ env.TAG }}"
+          tag_name: ${{ env.TAG }}
+          files: |
+            artifacts/release/CliManager-v${{ env.VERSION }}-Setup.exe
+            artifacts/release/CliManager-v${{ env.VERSION }}-win-x64-portable.zip
+            artifacts/release/SHA256SUMS.txt
+          generate_release_notes: true
+          draft: false
+          prerelease: false
