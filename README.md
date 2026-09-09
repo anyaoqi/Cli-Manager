@@ -1,4 +1,4 @@
-# ⚡ CliManager (cli-right-menu)
+# ⚡ CliManager (Cli-Manager)
 
 > **专为开发者（特别是 AI CLI 重度用户）量身打造的 Windows 文件夹空白处右键菜单管理工具。**  
 > 优雅组织 Claude Code、OpenCode、Codex CLI、Gemini CLI、Kimi CLI、Warp 等终端与工具，杜绝右键菜单臃肿杂乱。
@@ -28,7 +28,7 @@
 项目严格遵守 Core / UI 分层原则，核心业务与平台 UI 完全解耦：
 
 ```text
-cli-right-menu
+Cli-Manager
 ├── src/
 │   ├── CliManager.Core       # 核心引擎类库（零 WPF/UI 依赖）
 │   │   ├── Models/           # 配置数据模型（config.json）
@@ -66,8 +66,8 @@ cli-right-menu
 
 1. **克隆仓库**：
    ```bash
-   git clone https://github.com/anyaoqi/cli-right-menu.git
-   cd cli-right-menu
+   git clone https://github.com/anyaoqi/Cli-Manager.git
+   cd Cli-Manager
    ```
 
 2. **运行单元测试**：
