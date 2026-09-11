@@ -44,6 +44,18 @@ public static class ConfigStorageService
     }
 
     /// <summary>
+    /// 获取网站 favicon 图标缓存目录（与配置文件同级的 icons 子目录，便携模式随程序目录走）。
+    /// </summary>
+    public static string GetIconCacheDirectory()
+    {
+        string configPath = GetConfigFilePath();
+        string baseDir = Path.GetDirectoryName(configPath) ?? AppDomain.CurrentDomain.BaseDirectory;
+        string iconDir = Path.Combine(baseDir, "icons");
+        Directory.CreateDirectory(iconDir);
+        return iconDir;
+    }
+
+    /// <summary>
     /// 加载配置。
     /// </summary>
     public static CliConfig LoadConfig()

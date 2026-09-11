@@ -4,6 +4,7 @@ namespace CliManager.Core.Detection;
 /// 本地已安装 CLI 工具与终端探测服务。
 /// 遵守 §3.4.1：全部由环境变量与标准机制推导，不硬编码个人私有路径。
 /// 严格过滤无扩展名 Linux/bash 脚本，按 .exe > .cmd > .bat > .ps1 优先级去重。
+/// 扫描范围包含 Node.js 安装目录内的全部 .cmd/.exe 工具（无论是否为 AI CLI）。
 /// </summary>
 public static class CliDiscoveryService
 {
@@ -64,11 +65,61 @@ public static class CliDiscoveryService
         string pnpmGlobal = Path.Combine(localAppData, "pnpm");
         ScanDirectory(pnpmGlobal, "npm", rawTools, seenPaths);
 
-        // 3. 探测用户 PATH 中的预设匹配项
+        // 3. 探测 Node.js 安装目录（npm 全局 .cmd 垫片的另一落盘位置，如自定义安装的 D:\Software\nodejs）
+        string? nodeDir = DetectNodeInstallDirectory();
+        if (nodeDir != null)
+        {
+            ScanDirectory(nodeDir, "node", rawTools, seenPaths);
+        }
+
+        // 4. 探测用户 PATH 中的预设匹配项
         ScanPathEnvironment(rawTools, seenPaths);
 
-        // 4. 全局归一化与去重优选
+        // 5. 全局归一化与去重优选
         return DeduplicateDetectedTools(rawTools);
+    }
+
+    /// <summary>
+    /// 探测 Node.js 安装目录（node.exe 所在目录）。
+    /// 优先从 PATH 解析（覆盖自定义安装位置与 nvm 链接目录），其次读取官方安装包写入的注册表 InstallPath。
+    /// </summary>
+    public static string? DetectNodeInstallDirectory()
+    {
+        // 1. PATH 中的 node.exe：可定位任意自定义安装目录（如 D:\Software\nodejs）
+        string? pathNode = FindInPath("node.exe");
+        if (pathNode != null)
+        {
+            return Path.GetDirectoryName(Path.GetFullPath(pathNode));
+        }
+
+        // 2. 官方 Node.js 安装包会写入 HKLM/HKCU SOFTWARE\Node.js 的 InstallPath
+        foreach (var hive in new[] { Microsoft.Win32.Registry.LocalMachine, Microsoft.Win32.Registry.CurrentUser })
+        {
+            try
+            {
+                using var key = hive.OpenSubKey(@"SOFTWARE\Node.js");
+                if (key?.GetValue("InstallPath") is string installPath && Directory.Exists(installPath))
+                {
+                    return installPath;
+                }
+            }
+            catch
+            {
+                // 忽略非特权/非致命异常
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// 扫描单个目录下的全部 Windows 可执行工具（同名按 .exe > .cmd > .bat > .ps1 去重）。
+    /// </summary>
+    public static List<DetectedTool> ScanDirectoryForExecutables(string directoryPath, string sourceTag)
+    {
+        var result = new List<DetectedTool>();
+        ScanDirectory(directoryPath, sourceTag, result, new HashSet<string>(StringComparer.OrdinalIgnoreCase));
+        return result;
     }
 
     private static void ScanDirectory(
@@ -209,7 +260,7 @@ public static class CliDiscoveryService
         int GetSourceRank(string source) => source switch
         {
             "local_bin" => 0,
-            "npm" => 1,
+            "npm" or "node" => 1,
             _ => 2
         };
 

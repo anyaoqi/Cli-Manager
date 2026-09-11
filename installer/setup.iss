@@ -1,6 +1,6 @@
 #define MyAppName "CliManager"
 #ifndef MyAppVersion
-#define MyAppVersion "0.0.1"
+#define MyAppVersion "0.0.3"
 #endif
 #define MyAppPublisher "anyaoqi"
 #define MyAppURL "https://github.com/anyaoqi/Cli-Manager"
@@ -29,6 +29,8 @@ ArchitecturesInstallIn64BitMode=x64compatible
 
 ; License and Output
 LicenseFile=..\LICENSE
+; 安装包 EXE 图标（向导、资源管理器、卸载列表均展示应用 Logo）
+SetupIconFile=..\src\CliManager.App\Assets\appicon.ico
 OutputDir=..\artifacts\release
 OutputBaseFilename=CliManager-v{#MyAppVersion}-Setup
 Compression=lzma2/ultra64

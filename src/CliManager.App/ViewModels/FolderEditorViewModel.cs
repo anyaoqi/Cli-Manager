@@ -81,7 +81,7 @@ public partial class FolderEditorViewModel : ObservableObject
         var dlg = new OpenFileDialog
         {
             Title = "选择文件夹图标",
-            Filter = "图标文件 (*.ico;*.exe;*.png)|*.ico;*.exe;*.png|所有文件 (*.*)|*.*"
+            Filter = "图标文件 (*.ico;*.exe;*.dll;*.png)|*.ico;*.exe;*.dll;*.png|所有文件 (*.*)|*.*"
         };
 
         if (dlg.ShowDialog() == true)

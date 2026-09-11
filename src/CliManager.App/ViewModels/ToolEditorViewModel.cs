@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using System.Windows.Media;
 using CliManager.App.Services;
+using CliManager.Core.Icons;
 using CliManager.Core.Launch;
 using CliManager.Core.Models;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -55,6 +56,24 @@ public partial class ToolEditorViewModel : ObservableObject
     [ObservableProperty]
     private bool _isCustomHost;
 
+    /// <summary>
+    /// 图标框操作结果提示（获取网站图标成功/失败等）。
+    /// </summary>
+    [ObservableProperty]
+    private string? _iconStatusMessage;
+
+    /// <summary>
+    /// 网站地址检测提示（图标框中输入了 URL 但尚未下载时展示）。
+    /// </summary>
+    [ObservableProperty]
+    private string? _iconHintMessage;
+
+    /// <summary>
+    /// 是否正在抓取网站图标（用于禁用按钮防止重复点击）。
+    /// </summary>
+    [ObservableProperty]
+    private bool _isFetchingIcon;
+
     public ObservableCollection<FolderOption> FolderOptions { get; } = [];
 
     public ObservableCollection<string> HostOptions { get; } =
@@ -83,6 +102,7 @@ public partial class ToolEditorViewModel : ObservableObject
             KeepOpen = tool.KeepOpen;
             Enabled = tool.Enabled;
             IsCustomHost = string.Equals(Host, TerminalHosts.Custom, StringComparison.OrdinalIgnoreCase);
+            IconStatusMessage = null;
 
             // 加载文件夹下拉项
             FolderOptions.Clear();
@@ -102,6 +122,7 @@ public partial class ToolEditorViewModel : ObservableObject
             }
 
             RefreshIcon();
+            UpdateIconHint();
             RecomputePreview();
         }
         finally
@@ -141,7 +162,14 @@ public partial class ToolEditorViewModel : ObservableObject
     }
 
     partial void OnNameChanged(string value) => OnFieldChanged();
-    partial void OnIconChanged(string? value) { RefreshIcon(); OnFieldChanged(); }
+
+    partial void OnIconChanged(string? value)
+    {
+        RefreshIcon();
+        UpdateIconHint();
+        OnFieldChanged();
+    }
+
     partial void OnExecutableChanged(string value) { RefreshIcon(); OnFieldChanged(); }
     partial void OnArgsTextChanged(string value) => OnFieldChanged();
     partial void OnKeepOpenChanged(bool value) => OnFieldChanged();
@@ -202,9 +230,48 @@ public partial class ToolEditorViewModel : ObservableObject
     }
 
     [RelayCommand]
+    private async Task FetchWebsiteIconAsync()
+    {
+        string? input = Icon?.Trim();
+        if (string.IsNullOrWhiteSpace(input) || !FaviconService.IsWebsiteAddress(input))
+        {
+            IconStatusMessage = "⚠️ 请先在图标路径框中填写网站地址（如 https://claude.ai 或 claude.ai）";
+            return;
+        }
+
+        IsFetchingIcon = true;
+        IconStatusMessage = "⏳ 正在获取网站图标...";
+        try
+        {
+            string url = FaviconService.NormalizeWebsiteUrl(input)!;
+            string cacheDir = ConfigStorageService.GetIconCacheDirectory();
+            string? localPath = await Task.Run(() => FaviconService.FetchToCache(url, cacheDir));
+
+            if (localPath == null)
+            {
+                IconStatusMessage = "❌ 无法获取该网站图标（站点不可达或未提供 favicon）";
+                return;
+            }
+
+            Icon = localPath;
+            IconStatusMessage = "✅ 已下载网站图标并应用";
+        }
+        catch (Exception ex)
+        {
+            IconStatusMessage = "❌ 获取网站图标失败：" + ex.Message;
+        }
+        finally
+        {
+            IsFetchingIcon = false;
+        }
+    }
+
+    [RelayCommand]
     private void ClearIcon()
     {
         Icon = null;
+        IconHintMessage = null;
+        IconStatusMessage = null;
     }
 
     [RelayCommand]
@@ -233,6 +300,17 @@ public partial class ToolEditorViewModel : ObservableObject
         }
 
         IconSource = ImageHelper.GetToolIcon(Icon, Executable);
+    }
+
+    /// <summary>
+    /// 图标框输入网站地址但尚未下载时给出引导提示；本地路径则清除提示。
+    /// </summary>
+    private void UpdateIconHint()
+    {
+        string? value = Icon?.Trim();
+        IconHintMessage = FaviconService.IsWebsiteAddress(value)
+            ? "🌐 检测到网站地址，点击【获取图标】下载 favicon"
+            : null;
     }
 
     public void RecomputePreview()

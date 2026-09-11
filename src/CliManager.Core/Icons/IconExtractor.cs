@@ -70,13 +70,12 @@ public static partial class IconExtractor
             }
         }
 
-        // 2. 如果是 .ico 文件，读取为 Icon 转 PNG 字节
+        // 2. 如果是 .ico 文件，解析 ICO 目录提取最佳帧为 PNG（兼容现代 PNG 压缩条目）
         if (ext is ".ico")
         {
             try
             {
-                using var icon = new Icon(cleanPath);
-                return IconToPngBytes(icon);
+                return IcoDecoder.ConvertToPng(File.ReadAllBytes(cleanPath));
             }
             catch
             {

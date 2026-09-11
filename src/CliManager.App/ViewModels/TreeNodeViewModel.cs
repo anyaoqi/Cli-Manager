@@ -41,6 +41,22 @@ public partial class TreeNodeViewModel : ObservableObject
     [ObservableProperty]
     private bool _isChild;
 
+    /// <summary>该节点正被拖拽中（源行半透明显示）。</summary>
+    [ObservableProperty]
+    private bool _isDragging;
+
+    /// <summary>鼠标悬停在该文件夹行上，将作为"移入"投递目标。</summary>
+    [ObservableProperty]
+    private bool _isDropTarget;
+
+    /// <summary>插入指示线：将插入到该行上方。</summary>
+    [ObservableProperty]
+    private bool _isDropAbove;
+
+    /// <summary>插入指示线：将插入到该行下方。</summary>
+    [ObservableProperty]
+    private bool _isDropBelow;
+
     public FolderItem? Folder { get; set; }
 
     public ToolItem? Tool { get; set; }

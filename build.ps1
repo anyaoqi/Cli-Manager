@@ -1,9 +1,9 @@
-param(
+﻿param(
     [switch]$Publish,
     [switch]$Installer,
     [switch]$Zip,
     [switch]$SelfContained,
-    [string]$AppVersion = "0.0.1",
+    [string]$AppVersion = "0.0.3",
     [string]$Configuration = "Release"
 )
 
@@ -40,6 +40,12 @@ if ($Publish -or $Installer -or $Zip) {
     
     # 停止正在运行的实例以避免文件锁占用
     Get-Process CliManager.App -ErrorAction SilentlyContinue | Stop-Process -Force
+    
+    # 清理旧发布目录以确保产物完全重新生成
+    if (Test-Path $outDir) {
+        Write-Host "正在清理旧发布目录: $outDir ..." -ForegroundColor Gray
+        Remove-Item -Recurse -Force $outDir
+    }
     
     # 默认采用自包含发布（包含运行时），杜绝系统 DOTNET_ROOT 指向旧版本 runtime 的报错
     $selfContainedArg = if ($PSBoundParameters.ContainsKey('SelfContained') -and -not $SelfContained) { "--self-contained false" } else { "--self-contained true" }
@@ -95,5 +101,5 @@ if ($Installer) {
 }
 
 if (-not ($Publish -or $Installer -or $Zip)) {
-    Write-Host "`n提示: 可使用 .\build.ps1 -Publish 生成独立发布产物；`n      或 .\build.ps1 -Installer -Zip -AppVersion 0.0.2 一键生成发布压缩包与 EXE 安装包。" -ForegroundColor Gray
+    Write-Host "`n提示: 可使用 .\build.ps1 -Publish 生成独立发布产物；`n      或 .\build.ps1 -Installer -Zip -AppVersion 0.0.3 一键生成发布压缩包与 EXE 安装包。" -ForegroundColor Gray
 }

@@ -15,10 +15,25 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <UseWPF>true</UseWPF>
+    <!-- 应用 Logo：嵌入 exe Win32 图标资源（资源管理器 / 桌面快捷方式 / 任务栏） -->
+    <ApplicationIcon>Assets\appicon.ico</ApplicationIcon>
   </PropertyGroup>
 
   <ItemGroup>
     <Using Include="System.IO" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- 应用内展示的 Logo 与默认图标（WPF 内嵌资源） -->
+    <Resource Include="Assets\logo.png" />
+    <Resource Include="Assets\default-tool.png" />
+    <Resource Include="Assets\default-folder.png" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- 随程序分发的默认图标：同步注册表时写入 Icon 值，供右键菜单显示统一默认图标 -->
+    <Content Include="Assets\default-tool.ico" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="Assets\default-folder.ico" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
 </Project>
