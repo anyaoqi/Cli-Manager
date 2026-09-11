@@ -14,6 +14,10 @@
   - 受管注册表写入 100% 限制在 `HKCU`，日常运行免管理员提权。
   - 直接写入标准命令行调用字符串，**即使卸载或移动 CliManager，右键菜单依然长久可用**，杜绝死链。
 - **🔍 智能探测与内置预设中心**：自动扫描系统与环境已安装的 CLI 工具（Claude Code、OpenCode、Codex CLI、Gemini CLI、Kimi CLI 等），一键快速配置。
+- **🎨 图标体系完整统一**：
+  - 全新软件 Logo 贯穿桌面快捷方式、EXE 图标、任务栏、窗口标题栏与安装包向导；
+  - 工具图标直接支持填写网站地址，一键抓取网站 favicon（自动下载至本地缓存并转换为注册表可用的 ICO）；
+  - 扫描未识别的工具、手动添加未配置图标的工具与文件夹，统一显示内置默认图标（右键菜单与应用内一致）。
 - **🔄 存量右键菜单迁移向导**：
   - 自动扫描并识别既有 HKCU / HKLM 右键菜单项；
   - 智能识别旧版 RightMenu 工具遗留配置与无效死链；
@@ -83,12 +87,12 @@ Cli-Manager
 
 4. **一键生成发布压缩包与 EXE 安装包**：
    ```powershell
-   .\build.ps1 -Installer -Zip -AppVersion 0.0.2
+   .\build.ps1 -Installer -Zip -AppVersion 0.0.3
    ```
    产物输出至 `artifacts/release/`：包含便携版 ZIP 压缩包与基于 Inno Setup 自动化打包的单文件 EXE 安装包，支持非管理员免提权安装、桌面与开始菜单快捷方式、双语引导界面及干净卸载。
 
 5. **CI/CD 自动化持续交付**：
-   项目配置了 GitHub Actions 自动化流水线（`.github/workflows/release.yml`）。当向仓库推送版本标签（例如 `git tag v0.0.2 && git push origin v0.0.2`）时，云端工作流将自动触发编译、全量单测、打包 EXE 安装包与 ZIP 压缩包，并自动发布 GitHub Release 及生成 SHA-256 校验清单。
+   项目配置了 GitHub Actions 自动化流水线（`.github/workflows/release.yml`）。当向仓库推送版本标签（例如 `git tag v0.0.3 && git push origin v0.0.3`）时，云端工作流将自动触发编译、全量单测、打包 EXE 安装包与 ZIP 压缩包，并自动发布 GitHub Release 及生成 SHA-256 校验清单。
 
 ---
 

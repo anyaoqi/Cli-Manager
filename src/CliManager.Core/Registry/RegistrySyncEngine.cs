@@ -1,4 +1,5 @@
 using System.Runtime.InteropServices;
+using CliManager.Core.Icons;
 using CliManager.Core.Launch;
 using CliManager.Core.Models;
 using Microsoft.Win32;
@@ -19,6 +20,7 @@ public sealed class RegistrySyncEngine
 
     private readonly RegistryKey _rootKey;
     private readonly string _basePath;
+    private string? _defaultIconsDirectory;
 
     public RegistrySyncEngine(RegistryKey? rootKey = null, string? basePath = null)
     {
@@ -29,9 +31,17 @@ public sealed class RegistrySyncEngine
     /// <summary>
     /// 执行配置同步，将配置持久化至注册表。
     /// </summary>
-    public RegistrySyncResult Sync(CliConfig config, string? resolvedWtPath = null, string? backupDir = null)
+    /// <param name="config">配置模型。</param>
+    /// <param name="resolvedWtPath">Windows Terminal 路径。</param>
+    /// <param name="backupDir">备份输出目录。</param>
+    /// <param name="appBaseDirectory">
+    /// 应用程序基目录：用于定位随程序分发的默认图标（Assets/default-tool.ico 与 default-folder.ico），
+    /// 使未配置图标的工具/文件夹在右键菜单中也能显示统一默认图标；传 null 则保持旧行为（不写 Icon 值）。
+    /// </param>
+    public RegistrySyncResult Sync(CliConfig config, string? resolvedWtPath = null, string? backupDir = null, string? appBaseDirectory = null)
     {
         var result = new RegistrySyncResult();
+        _defaultIconsDirectory = appBaseDirectory;
 
         try
         {
@@ -255,9 +265,10 @@ public sealed class RegistrySyncEngine
 
         folderKey.SetValue(RegistryConstants.ManagedValueName, 1, RegistryValueKind.DWord);
 
-        if (!string.IsNullOrWhiteSpace(folder.Icon))
+        string? folderIconValue = ResolveRegistryIconValue(folder.Icon, "default-folder.ico");
+        if (!string.IsNullOrWhiteSpace(folderIconValue))
         {
-            folderKey.SetValue(RegistryConstants.IconValueName, folder.Icon, RegistryValueKind.String);
+            folderKey.SetValue(RegistryConstants.IconValueName, folderIconValue, RegistryValueKind.String);
         }
         else
         {
@@ -325,9 +336,10 @@ public sealed class RegistrySyncEngine
         toolKey.SetValue("", tool.Name, RegistryValueKind.String);
         toolKey.SetValue(RegistryConstants.ManagedValueName, 1, RegistryValueKind.DWord);
 
-        if (!string.IsNullOrWhiteSpace(tool.Icon))
+        string? toolIconValue = ResolveRegistryIconValue(tool.Icon, "default-tool.ico");
+        if (!string.IsNullOrWhiteSpace(toolIconValue))
         {
-            toolKey.SetValue(RegistryConstants.IconValueName, tool.Icon, RegistryValueKind.String);
+            toolKey.SetValue(RegistryConstants.IconValueName, toolIconValue, RegistryValueKind.String);
         }
         else
         {
@@ -359,6 +371,95 @@ public sealed class RegistrySyncEngine
             return true;
         }
         return false;
+    }
+
+    /// <summary>
+    /// 解析写入注册表的 Icon 值：
+    /// - 网站地址（favicon）无法被 Explorer 解析，回退默认图标；
+    /// - PNG 引用不被右键菜单支持，替换为同目录同名 .ico（favicon 缓存同时生成两种格式）；
+    /// - 未配置图标时写入随程序分发的统一默认图标。
+    /// </summary>
+    private string? ResolveRegistryIconValue(string? icon, string defaultIconFileName)
+    {
+        if (!string.IsNullOrWhiteSpace(icon))
+        {
+            string trimmed = icon.Trim();
+            if (FaviconService.IsWebsiteAddress(trimmed))
+            {
+                return GetDefaultIconPath(defaultIconFileName);
+            }
+
+            if (trimmed.EndsWith(".png", StringComparison.OrdinalIgnoreCase))
+            {
+                string icoCandidate = Path.ChangeExtension(trimmed, ".ico");
+                if (File.Exists(icoCandidate))
+                {
+                    return icoCandidate;
+                }
+
+                if (File.Exists(trimmed))
+                {
+                    string? generatedIco = TryGenerateCompanionIco(trimmed);
+                    if (generatedIco != null)
+                    {
+                        return generatedIco;
+                    }
+                }
+
+                return GetDefaultIconPath(defaultIconFileName);
+            }
+
+            return trimmed;
+        }
+
+        return GetDefaultIconPath(defaultIconFileName);
+    }
+
+    private static string? TryGenerateCompanionIco(string pngPath)
+    {
+        try
+        {
+            byte[] pngBytes = File.ReadAllBytes(pngPath);
+            byte[]? icoBytes = IcoDecoder.WrapPngAsIco(pngBytes);
+            if (icoBytes == null)
+            {
+                return null;
+            }
+
+            string icoCandidate = Path.ChangeExtension(pngPath, ".ico");
+            try
+            {
+                File.WriteAllBytes(icoCandidate, icoBytes);
+                return icoCandidate;
+            }
+            catch
+            {
+                string cacheDir = Path.Combine(
+                    Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
+                    "CliManager",
+                    "icons");
+                Directory.CreateDirectory(cacheDir);
+                string hash = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(pngBytes))[..12];
+                string fallbackPath = Path.Combine(cacheDir, $"{Path.GetFileNameWithoutExtension(pngPath)}_{hash}.ico");
+                File.WriteAllBytes(fallbackPath, icoBytes);
+                return fallbackPath;
+            }
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private string? GetDefaultIconPath(string defaultIconFileName)
+    {
+        if (string.IsNullOrWhiteSpace(_defaultIconsDirectory))
+        {
+            return null;
+        }
+
+        string path = Path.Combine(_defaultIconsDirectory, "Assets", defaultIconFileName);
+        return File.Exists(path) ? path : null;
     }
 
     private static bool IsShadowOverrideKey(RegistryKey key)

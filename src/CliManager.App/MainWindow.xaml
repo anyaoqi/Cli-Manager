@@ -4,7 +4,8 @@
                  xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
                  xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
                  xmlns:vm="clr-namespace:CliManager.App.ViewModels"
-                 Title="⚡ CliManager - 开发终端右键管理工具"
+                 Title="CliManager - 开发终端右键管理工具"
+                 Icon="pack://application:,,,/CliManager.App;component/Assets/logo.png"
                  Width="1120" Height="740"
                  MinWidth="900" MinHeight="600"
                  WindowStartupLocation="CenterScreen"
@@ -23,8 +24,12 @@
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
-        <!-- 标题栏 -->
-        <ui:TitleBar Grid.Row="0" Title="⚡ CliManager - 开发终端右键管理工具" />
+        <!-- 标题栏（展示应用 Logo） -->
+        <ui:TitleBar Grid.Row="0" Title="CliManager - 开发终端右键管理工具">
+            <ui:TitleBar.Icon>
+                <ui:ImageIcon Source="pack://application:,,,/CliManager.App;component/Assets/logo.png" />
+            </ui:TitleBar.Icon>
+        </ui:TitleBar>
 
         <!-- 顶部自动检测横幅 -->
         <Border Grid.Row="1" Margin="16,0,16,12" Padding="12,10"
@@ -38,8 +43,10 @@
                     <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
                 <TextBlock Grid.Column="0" Text="{Binding DetectedBannerText}" VerticalAlignment="Center" FontWeight="Medium" />
-                <ui:Button Grid.Column="1" Content="📥 一键导入为【AI 编程工具】分组" Appearance="Primary"
-                           Command="{Binding ImportDetectedToolsCommand}" />
+                <ui:Button Grid.Column="1" Content="📥 扫描并导入" Appearance="Primary"
+                           Command="{Binding ImportDetectedToolsCommand}"
+                           ToolTip="勾选要导入的 CLI 工具，并选择放入已有分组、新建分组或根层级"
+                           ToolTipService.InitialShowDelay="200" />
             </Grid>
         </Border>
 
@@ -110,6 +117,7 @@
                                   PreviewMouseLeftButtonDown="OnTreePreviewMouseLeftButtonDown"
                                   MouseMove="OnTreeMouseMove"
                                   DragOver="OnTreeDragOver"
+                                  DragLeave="OnTreeDragLeave"
                                   Drop="OnTreeDrop"
                                   KeyDown="OnTreeKeyDown"
                                   AllowDrop="True"
@@ -130,14 +138,26 @@
                                                         <Setter Property="Margin" Value="0,3,0,2" />
                                                     </DataTrigger>
                                                     <DataTrigger Binding="{Binding IsChild}" Value="True">
-                                                        <Setter Property="Margin" Value="20,1,0,1" />
+                                                        <Setter Property="Margin" Value="2,1,0,1" />
                                                         <Setter Property="Padding" Value="4,4" />
+                                                    </DataTrigger>
+                                                    <!-- 拖拽中：源行半透明 -->
+                                                    <DataTrigger Binding="{Binding IsDragging}" Value="True">
+                                                        <Setter Property="Opacity" Value="0.35" />
+                                                    </DataTrigger>
+                                                    <!-- 悬停文件夹：作为"移入"投递目标高亮 -->
+                                                    <DataTrigger Binding="{Binding IsDropTarget}" Value="True">
+                                                        <Setter Property="Background" Value="{DynamicResource DropTargetFillBrush}" />
+                                                        <Setter Property="BorderBrush" Value="{DynamicResource AccentFillColorDefaultBrush}" />
+                                                        <Setter Property="BorderThickness" Value="1.5" />
                                                     </DataTrigger>
                                                 </Style.Triggers>
                                             </Style>
                                         </Border.Style>
 
-                                        <Grid Margin="0,1">
+                                        <Grid>
+                                            <!-- 行内容 -->
+                                            <Grid Margin="0,1">
                                             <Grid.ColumnDefinitions>
                                                 <!-- 0: 树枝连接符 (仅子项显示) -->
                                                 <ColumnDefinition Width="Auto" />
@@ -156,8 +176,7 @@
                                                        FontFamily="Consolas, Cascadia Code, Courier New"
                                                        FontSize="13" VerticalAlignment="Center"
                                                        Foreground="{DynamicResource TextFillColorTertiaryBrush}"
-                                                       Visibility="{Binding IsChild, Converter={StaticResource BoolToVisibilityConverter}}"
-                                                       Margin="0,0,2,0" />
+                                                       Visibility="{Binding IsChild, Converter={StaticResource BoolToVisibilityConverter}}" />
 
                                             <!-- 图标 -->
                                             <Image Grid.Column="1" Source="{Binding IconSource}" Width="18" Height="18" Margin="0,0,8,0"
@@ -194,6 +213,39 @@
                                                 </Border>
                                                 <TextBlock Text="≡" FontWeight="Bold" Foreground="{DynamicResource TextFillColorTertiaryBrush}" Cursor="SizeAll" />
                                             </StackPanel>
+                                            </Grid>
+
+                                            <!-- 插入位置指示线：插入到本行上方 -->
+                                            <Border Height="3" CornerRadius="1.5"
+                                                    VerticalAlignment="Top" Margin="-6,-6,-6,0"
+                                                    Background="{DynamicResource AccentFillColorDefaultBrush}">
+                                                <Border.Style>
+                                                    <Style TargetType="Border">
+                                                        <Setter Property="Visibility" Value="Collapsed" />
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding IsDropAbove}" Value="True">
+                                                                <Setter Property="Visibility" Value="Visible" />
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </Border.Style>
+                                            </Border>
+
+                                            <!-- 插入位置指示线：插入到本行下方 -->
+                                            <Border Height="3" CornerRadius="1.5"
+                                                    VerticalAlignment="Bottom" Margin="-6,0,-6,-6"
+                                                    Background="{DynamicResource AccentFillColorDefaultBrush}">
+                                                <Border.Style>
+                                                    <Style TargetType="Border">
+                                                        <Setter Property="Visibility" Value="Collapsed" />
+                                                        <Style.Triggers>
+                                                            <DataTrigger Binding="{Binding IsDropBelow}" Value="True">
+                                                                <Setter Property="Visibility" Value="Visible" />
+                                                            </DataTrigger>
+                                                        </Style.Triggers>
+                                                    </Style>
+                                                </Border.Style>
+                                            </Border>
                                         </Grid>
                                     </Border>
                                 </HierarchicalDataTemplate>
@@ -202,6 +254,83 @@
                                 <Style TargetType="TreeViewItem" BasedOn="{StaticResource {x:Type TreeViewItem}}">
                                     <Setter Property="IsExpanded" Value="{Binding IsExpanded, Mode=TwoWay}" />
                                     <Setter Property="IsSelected" Value="{Binding IsSelected, Mode=TwoWay}" />
+                                    <Setter Property="Template">
+                                        <Setter.Value>
+                                            <ControlTemplate TargetType="TreeViewItem">
+                                                <Grid>
+                                                    <Grid.RowDefinitions>
+                                                        <RowDefinition Height="Auto" />
+                                                        <RowDefinition Height="Auto" />
+                                                    </Grid.RowDefinitions>
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="Auto" />
+                                                        <ColumnDefinition Width="*" />
+                                                    </Grid.ColumnDefinitions>
+
+                                                    <!-- 行背景（悬停/选中高亮），横跨展开开关与内容 -->
+                                                    <Border x:Name="Border" Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="2"
+                                                            CornerRadius="4" Background="Transparent" SnapsToDevicePixels="True">
+                                                        <Grid>
+                                                            <!-- 选中态左侧指示条 -->
+                                                            <Rectangle x:Name="ActiveRectangle" Width="3" Height="16" RadiusX="2" RadiusY="2"
+                                                                       HorizontalAlignment="Left" VerticalAlignment="Center"
+                                                                       Margin="1,0,0,0" Visibility="Collapsed"
+                                                                       Fill="{DynamicResource TreeViewItemSelectionIndicatorForeground}" />
+
+                                                            <Grid>
+                                                                <Grid.ColumnDefinitions>
+                                                                    <!-- 折叠开关列：叶子节点折叠为 0 宽 -->
+                                                                    <ColumnDefinition Width="Auto" />
+                                                                    <ColumnDefinition Width="*" />
+                                                                </Grid.ColumnDefinitions>
+
+                                                                <!-- 折叠开关：仅文件夹（HasItems）显示 -->
+                                                                <ToggleButton x:Name="Expander" Grid.Column="0"
+                                                                              ClickMode="Press" Focusable="False" Cursor="Hand"
+                                                                              VerticalAlignment="Center" Margin="2,0,2,0"
+                                                                              IsChecked="{Binding IsExpanded, RelativeSource={RelativeSource TemplatedParent}, Mode=TwoWay}"
+                                                                              Visibility="Collapsed">
+                                                                    <ToggleButton.Template>
+                                                                        <ControlTemplate TargetType="ToggleButton">
+                                                                            <ContentPresenter />
+                                                                        </ControlTemplate>
+                                                                    </ToggleButton.Template>
+                                                                    <ui:SymbolIcon Symbol="ChevronRight12" FontSize="10"
+                                                                                   Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
+                                                                </ToggleButton>
+
+                                                                <ContentPresenter x:Name="PART_Header" Grid.Column="1"
+                                                                                  ContentSource="Header"
+                                                                                  Margin="{TemplateBinding Padding}" />
+                                                            </Grid>
+                                                        </Grid>
+                                                    </Border>
+
+                                                    <ItemsPresenter x:Name="ItemsHost" Grid.Row="1" Grid.Column="1" Visibility="Collapsed" />
+                                                </Grid>
+                                                <ControlTemplate.Triggers>
+                                                    <Trigger Property="HasItems" Value="True">
+                                                        <Setter TargetName="Expander" Property="Visibility" Value="Visible" />
+                                                    </Trigger>
+                                                    <Trigger Property="IsExpanded" Value="True">
+                                                        <Setter TargetName="ItemsHost" Property="Visibility" Value="Visible" />
+                                                        <Setter TargetName="Expander" Property="LayoutTransform">
+                                                            <Setter.Value>
+                                                                <RotateTransform Angle="90" />
+                                                            </Setter.Value>
+                                                        </Setter>
+                                                    </Trigger>
+                                                    <Trigger Property="IsMouseOver" Value="True">
+                                                        <Setter TargetName="Border" Property="Background" Value="{DynamicResource TreeViewItemBackgroundPointerOver}" />
+                                                    </Trigger>
+                                                    <Trigger Property="IsSelected" Value="True">
+                                                        <Setter TargetName="Border" Property="Background" Value="{DynamicResource TreeViewItemBackgroundSelected}" />
+                                                        <Setter TargetName="ActiveRectangle" Property="Visibility" Value="Visible" />
+                                                    </Trigger>
+                                                </ControlTemplate.Triggers>
+                                            </ControlTemplate>
+                                        </Setter.Value>
+                                    </Setter>
                                 </Style>
                             </TreeView.ItemContainerStyle>
                         </TreeView>
@@ -211,7 +340,7 @@
                                     Visibility="{Binding HasRootNodes, Converter={StaticResource InverseBoolToVisibilityConverter}}">
                             <TextBlock Text="暂无菜单项" HorizontalAlignment="Center" FontWeight="SemiBold" Margin="0,0,0,6"
                                        Foreground="{DynamicResource TextFillColorSecondaryBrush}" />
-                            <TextBlock Text="点击上方【➕ 新建文件夹】或【➕ 添加工具】开始编排，也可直接点击顶部横幅一键导入本地发现的 CLI 工具"
+                            <TextBlock Text="点击上方【➕ 新建文件夹】或【➕ 添加工具】开始编排，也可直接点击顶部横幅扫描并导入本地发现的 CLI 工具"
                                        TextWrapping="Wrap" HorizontalAlignment="Center" TextAlignment="Center" FontSize="12"
                                        Foreground="{DynamicResource TextFillColorTertiaryBrush}" />
                         </StackPanel>
@@ -383,19 +512,34 @@
 
                             <!-- 图标 -->
                             <StackPanel Margin="0,0,0,14">
-                                <TextBlock Text="图标路径（支持 .ico / .exe / .png）" FontWeight="Medium" Margin="0,0,0,6" />
+                                <TextBlock Text="图标路径（支持 .ico / .exe / .png / 网站地址）" FontWeight="Medium" Margin="0,0,0,6" />
                                 <Grid>
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="Auto" />
                                         <ColumnDefinition Width="*" />
                                         <ColumnDefinition Width="Auto" />
                                         <ColumnDefinition Width="Auto" />
+                                        <ColumnDefinition Width="Auto" />
                                     </Grid.ColumnDefinitions>
                                     <Image Grid.Column="0" Source="{Binding IconSource}" Width="24" Height="24" Margin="0,0,8,0" />
-                                    <TextBox Grid.Column="1" Text="{Binding Icon, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,8,0" />
-                                    <ui:Button Grid.Column="2" Content="浏览..." Command="{Binding BrowseIconCommand}" Margin="0,0,6,0" />
-                                    <ui:Button Grid.Column="3" Content="清除" Command="{Binding ClearIconCommand}" />
+                                    <TextBox Grid.Column="1" Text="{Binding Icon, UpdateSourceTrigger=PropertyChanged}" Margin="0,0,8,0"
+                                             ToolTip="可直接填写网站地址（如 https://claude.ai），点击【获取图标】自动下载 favicon" />
+                                    <ui:Button Grid.Column="2" Command="{Binding FetchWebsiteIconCommand}" Margin="0,0,6,0"
+                                               IsEnabled="{Binding IsFetchingIcon, Converter={StaticResource InverseBoolConverter}}"
+                                               ToolTip="从网站地址抓取 favicon 图标" ToolTipService.InitialShowDelay="200">
+                                        <StackPanel Orientation="Horizontal">
+                                            <ui:SymbolIcon Symbol="Globe20" Margin="0,0,4,0" />
+                                            <TextBlock Text="获取图标" VerticalAlignment="Center" />
+                                        </StackPanel>
+                                    </ui:Button>
+                                    <ui:Button Grid.Column="3" Content="浏览..." Command="{Binding BrowseIconCommand}" Margin="0,0,6,0" />
+                                    <ui:Button Grid.Column="4" Content="清除" Command="{Binding ClearIconCommand}" />
                                 </Grid>
+                                <TextBlock Text="{Binding IconHintMessage}" FontSize="12" Margin="0,4,0,0"
+                                           Foreground="{DynamicResource TextFillColorSecondaryBrush}"
+                                           Visibility="{Binding IconHintMessage, Converter={StaticResource NullToVisibilityConverter}}" />
+                                <TextBlock Text="{Binding IconStatusMessage}" FontSize="12" Margin="0,4,0,0"
+                                           Visibility="{Binding IconStatusMessage, Converter={StaticResource NullToVisibilityConverter}}" />
                             </StackPanel>
 
                             <!-- 环境变量列表 -->

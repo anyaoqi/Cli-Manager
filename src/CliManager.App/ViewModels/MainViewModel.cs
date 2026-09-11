@@ -1,6 +1,7 @@
 using System.Collections.ObjectModel;
 using CliManager.App.Services;
 using CliManager.Core.Detection;
+using CliManager.Core.Icons;
 using CliManager.Core.Models;
 using CliManager.Core.Registry;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -64,7 +65,7 @@ public partial class MainViewModel : ObservableObject
 
     public FolderEditorViewModel FolderEditor { get; } = new();
 
-    private readonly List<DetectedTool> _unconfiguredDetectedTools = [];
+    internal readonly List<DetectedTool> _unconfiguredDetectedTools = [];
 
     public MainViewModel()
     {
@@ -146,9 +147,14 @@ public partial class MainViewModel : ObservableObject
         }
     }
 
-    partial void OnSelectedNodeChanged(TreeNodeViewModel? value)
+    partial void OnSelectedNodeChanged(TreeNodeViewModel? oldValue, TreeNodeViewModel? newValue)
     {
-        if (value == null)
+        if (oldValue != null)
+        {
+            oldValue.IsSelected = false;
+        }
+
+        if (newValue == null)
         {
             IsEditingFolder = false;
             IsEditingTool = false;
@@ -156,29 +162,45 @@ public partial class MainViewModel : ObservableObject
             return;
         }
 
-        if (value.IsFolder && value.Folder != null)
+        newValue.IsSelected = true;
+        if (newValue.ParentNode != null)
+        {
+            newValue.ParentNode.IsExpanded = true;
+        }
+
+        if (newValue.IsFolder && newValue.Folder != null)
         {
             IsEditingFolder = true;
             IsEditingTool = false;
             HasSelectedNode = true;
-            FolderEditor.Load(value.Folder, () =>
+            FolderEditor.Load(newValue.Folder, () =>
             {
-                value.Title = value.Folder.Name;
-                value.IconPath = value.Folder.Icon;
-                value.RefreshIcon();
+                newValue.Title = newValue.Folder.Name;
+                newValue.IconPath = newValue.Folder.Icon;
+                newValue.RefreshIcon();
                 UpdateLivePreview();
             });
         }
-        else if (!value.IsFolder && value.Tool != null)
+        else if (!newValue.IsFolder && newValue.Tool != null)
         {
             IsEditingFolder = false;
             IsEditingTool = true;
             HasSelectedNode = true;
-            ToolEditor.Load(value.Tool, Config.Folders, () =>
+            ToolEditor.Load(newValue.Tool, Config.Folders, () =>
             {
-                value.Title = value.Tool.Name;
-                value.IconPath = value.Tool.Icon;
-                value.RefreshIcon();
+                // 检测是否在右侧属性面板中切换了"归属文件夹"：若发生变动，立即重建树以保持左右完全同步
+                string? currentParentId = newValue.ParentNode?.Id;
+                string? newParentId = newValue.Tool.ParentId;
+                if (!string.Equals(currentParentId, newParentId, StringComparison.OrdinalIgnoreCase))
+                {
+                    BuildTree();
+                    SelectedNode = FindNode(newValue.Tool.Id);
+                    return;
+                }
+
+                newValue.Title = newValue.Tool.Name;
+                newValue.IconPath = newValue.Tool.Icon;
+                newValue.RefreshIcon();
                 UpdateLivePreview();
             });
         }
@@ -216,16 +238,7 @@ public partial class MainViewModel : ObservableObject
                 }
             }
 
-            if (_unconfiguredDetectedTools.Count > 0)
-            {
-                HasDetectedTools = true;
-                string names = string.Join(", ", _unconfiguredDetectedTools.Take(4).Select(t => t.Name));
-                DetectedBannerText = $"🔍 本机发现 {_unconfiguredDetectedTools.Count} 个未配置的 CLI 工具 ({names}...)";
-            }
-            else
-            {
-                HasDetectedTools = false;
-            }
+            RefreshDetectedBanner();
         }
         catch
         {
@@ -234,7 +247,31 @@ public partial class MainViewModel : ObservableObject
     }
 
     /// <summary>
-    /// 一键将探测到的工具归纳为 [AI 编程工具] 菜单文件夹。
+    /// 根据剩余未配置的探测结果刷新顶部横幅。
+    /// </summary>
+    private void RefreshDetectedBanner()
+    {
+        if (_unconfiguredDetectedTools.Count > 0)
+        {
+            HasDetectedTools = true;
+            string names = string.Join(", ", _unconfiguredDetectedTools.Take(4).Select(t => t.Name));
+            DetectedBannerText = $"🔍 本机发现 {_unconfiguredDetectedTools.Count} 个未配置的 CLI 工具 ({names}...)";
+        }
+        else
+        {
+            HasDetectedTools = false;
+        }
+    }
+
+    /// <summary>
+    /// 扫描并导入弹框委托（可由测试注入以模拟用户勾选，避免阻塞自动化测试）。
+    /// 入参为候选工具与现有分组；返回 null 表示用户取消。
+    /// </summary>
+    public Func<IReadOnlyList<DetectedTool>, IReadOnlyList<FolderItem>, ImportSelectionResult?>? ImportDialogHandler { get; set; }
+
+    /// <summary>
+    /// 扫描并导入：弹出勾选框，由用户选择要导入的工具与目标分组（已有分组 / 新建分组 / 根层级）。
+    /// 不再默认创建【AI 编程工具】分组；未选择分组时导入到根层级。
     /// </summary>
     [RelayCommand]
     private void ImportDetectedTools()
@@ -244,79 +281,129 @@ public partial class MainViewModel : ObservableObject
             return;
         }
 
-        // 查找或创建 AI 编程工具文件夹
-        var folder = Config.Folders.FirstOrDefault(f => f.Name.Contains("AI"));
-        if (folder == null)
+        IReadOnlyList<DetectedTool> candidates = _unconfiguredDetectedTools.ToList();
+        ImportSelectionResult? result = ImportDialogHandler != null
+            ? ImportDialogHandler(candidates, Config.Folders)
+            : ShowImportDialog(candidates, Config.Folders);
+
+        if (result == null || result.SelectedTools.Count == 0)
         {
-            folder = new FolderItem
+            return;
+        }
+
+        // 解析目标分组：显式新建分组 > 已选分组 > 根层级
+        string? parentId = null;
+        FolderItem? createdFolder = null;
+        if (!string.IsNullOrWhiteSpace(result.NewFolderName))
+        {
+            createdFolder = new FolderItem
             {
-                Name = "AI 编程工具",
-                Icon = null, // 去掉默认图标值，保持为空
-                Order = 10,
+                Name = result.NewFolderName.Trim(),
+                Icon = null,
+                Order = Config.Folders.Count > 0 ? Config.Folders.Max(f => f.Order) + 10 : 10,
                 Enabled = true
             };
-            Config.Folders.Add(folder);
+            Config.Folders.Add(createdFolder);
+            parentId = createdFolder.Id;
         }
-        else if (folder.Icon == "shell32.dll,305")
+        else if (!string.IsNullOrEmpty(result.TargetFolderId) &&
+                 result.TargetFolderId != ImportToolsViewModel.NewFolderOptionId &&
+                 Config.Folders.Any(f => f.Id == result.TargetFolderId))
         {
-            // 若为历史遗留的默认值则清除
-            folder.Icon = null;
+            parentId = result.TargetFolderId;
         }
 
         int startOrder = Config.Tools.Count > 0 ? Config.Tools.Max(t => t.Order) : 0;
-        foreach (var d in _unconfiguredDetectedTools)
+        int importedCount = 0;
+        string? firstImportedToolId = null;
+        foreach (var d in result.SelectedTools)
         {
             string toolName = d.RecommendedDisplayName ?? d.Name;
             bool alreadyExists = Config.Tools.Any(t =>
                 string.Equals(t.Executable, d.ExecutablePath, StringComparison.OrdinalIgnoreCase) ||
-                (string.Equals(t.ParentId, folder.Id, StringComparison.OrdinalIgnoreCase) &&
+                (string.Equals(t.ParentId, parentId, StringComparison.OrdinalIgnoreCase) &&
                  string.Equals(t.Name, toolName, StringComparison.OrdinalIgnoreCase)));
 
+            // 已存在的视为已配置，同样从候选横幅中移除
+            _unconfiguredDetectedTools.Remove(d);
             if (alreadyExists)
             {
                 continue;
             }
 
             startOrder += 10;
+            importedCount++;
 
-            // 智能识别最佳图标路径（若为 .cmd/.bat 则优先探查同级同名 .exe）
-            string? iconPath = null;
-            if (!string.IsNullOrWhiteSpace(d.ExecutablePath))
-            {
-                string exe = d.ExecutablePath;
-                if (exe.EndsWith(".cmd", StringComparison.OrdinalIgnoreCase) ||
-                    exe.EndsWith(".bat", StringComparison.OrdinalIgnoreCase))
-                {
-                    string siblingExe = Path.ChangeExtension(exe, ".exe");
-                    if (File.Exists(siblingExe))
-                    {
-                        iconPath = siblingExe;
-                    }
-                }
-                else if (File.Exists(exe) && exe.EndsWith(".exe", StringComparison.OrdinalIgnoreCase))
-                {
-                    iconPath = exe;
-                }
-            }
-
-            Config.Tools.Add(new ToolItem
+            var newTool = new ToolItem
             {
                 Name = toolName,
                 Executable = d.ExecutablePath,
-                Icon = iconPath,
+                Icon = ResolveDetectedToolIcon(d),
                 Host = d.RecommendedHost ?? TerminalHosts.WindowsTerminal,
-                ParentId = folder.Id,
+                ParentId = parentId,
                 Order = startOrder,
                 Enabled = true
-            });
+            };
+            Config.Tools.Add(newTool);
+            firstImportedToolId ??= newTool.Id;
         }
 
-        _unconfiguredDetectedTools.Clear();
-        HasDetectedTools = false;
-
+        RefreshDetectedBanner();
         BuildTree();
         UpdateLivePreview();
-        ShowInfoBar("导入成功", "已将发现的工具归纳至【AI 编程工具】文件夹，点击右下角【保存并同步】即可生效。");
+
+        // 优先选中新建的文件夹；若未建文件夹则聚焦到首个导入的工具并展开所属父级
+        if (createdFolder != null)
+        {
+            SelectedNode = RootNodes.FirstOrDefault(n => n.Id == createdFolder.Id);
+            if (SelectedNode != null)
+            {
+                SelectedNode.IsExpanded = true;
+            }
+        }
+        else if (firstImportedToolId != null)
+        {
+            SelectedNode = FindNode(firstImportedToolId);
+        }
+
+        string targetName = createdFolder?.Name
+            ?? Config.Folders.FirstOrDefault(f => f.Id == parentId)?.Name
+            ?? "根层级";
+        ShowInfoBar("导入成功", $"已导入 {importedCount} 个 CLI 工具至【{targetName}】，点击右下角【保存并同步】即可生效。");
+    }
+
+    /// <summary>
+    /// 弹出导入选择窗口（默认实现，测试中通过 ImportDialogHandler 替代）。
+    /// </summary>
+    private static ImportSelectionResult? ShowImportDialog(IReadOnlyList<DetectedTool> candidates, IReadOnlyList<FolderItem> folders)
+    {
+        var viewModel = new ImportToolsViewModel(candidates, folders);
+        var window = new Views.ImportToolsWindow(viewModel)
+        {
+            Owner = System.Windows.Application.Current?.MainWindow
+        };
+        return window.ShowDialog() == true ? viewModel.BuildResult() : null;
+    }
+
+    /// <summary>
+    /// 智能识别最佳图标路径（.cmd/.bat 优先探查同级同名 .exe）。
+    /// </summary>
+    private static string? ResolveDetectedToolIcon(DetectedTool d)
+    {
+        if (string.IsNullOrWhiteSpace(d.ExecutablePath))
+        {
+            return null;
+        }
+
+        string exe = d.ExecutablePath;
+        if (exe.EndsWith(".cmd", StringComparison.OrdinalIgnoreCase) ||
+            exe.EndsWith(".bat", StringComparison.OrdinalIgnoreCase))
+        {
+            string siblingExe = Path.ChangeExtension(exe, ".exe");
+            return File.Exists(siblingExe) ? siblingExe : null;
+        }
+
+        return File.Exists(exe) && exe.EndsWith(".exe", StringComparison.OrdinalIgnoreCase) ? exe : null;
     }
 
     [RelayCommand]
@@ -578,14 +665,219 @@ public partial class MainViewModel : ObservableObject
         UpdateLivePreview();
     }
 
+    /// <summary>
+    /// 拖拽落点的统一移动入口（在模型空间完成搬移后重建树）。
+    /// - targetFolder 非空：把工具移入该文件夹末尾（拖到文件夹行上）；
+    /// - targetSibling 非空：插入到该节点上/下方（文件源会自动映射为根级参照）；
+    /// - 两者皆空：移到根级末尾（拖到空白区域）。
+    /// 移动后会对受影响的兄弟列表统一重排 Order，避免出现重复序号。
+    /// </summary>
+    public void MoveDraggedNode(TreeNodeViewModel source, TreeNodeViewModel? targetSibling, bool insertAbove, TreeNodeViewModel? targetFolder)
+    {
+        if (source == null)
+        {
+            return;
+        }
+
+        // 落点是自己：保持原地不动
+        if (targetSibling != null && ReferenceEquals(targetSibling, source))
+        {
+            return;
+        }
+        if (targetFolder != null && ReferenceEquals(targetFolder, source))
+        {
+            return;
+        }
+
+        // 文件夹只能参与根级排序：参照物统一映射为根级节点
+        if (source.IsFolder)
+        {
+            if (targetSibling == null && targetFolder != null)
+            {
+                targetSibling = targetFolder;
+                insertAbove = false;
+            }
+            if (targetSibling?.ParentNode?.IsFolder == true)
+            {
+                targetSibling = targetSibling.ParentNode; // 参照物是文件夹内的工具 → 用其所属文件夹
+            }
+            targetFolder = null;
+
+            // 映射后参照物可能是自身（如拖到自己子工具上）：原地不动
+            if (targetSibling != null && ReferenceEquals(targetSibling, source))
+            {
+                return;
+            }
+        }
+
+        // 工具源：目标容器由参照物的父级决定
+        string? destParentId = null;
+        if (!source.IsFolder)
+        {
+            if (targetSibling != null)
+            {
+                destParentId = targetSibling.ParentNode?.Id; // 根级参照 → null；文件夹内参照 → 文件夹 Id
+            }
+            else if (targetFolder?.Folder != null)
+            {
+                destParentId = targetFolder.Folder.Id;
+            }
+        }
+
+        if (source.IsFolder && source.Folder != null)
+        {
+            // 文件夹在根级混排列表中重排
+            var rootItems = BuildMergedRootItems();
+            object sourceModel = source.Folder;
+            object? refModel = targetSibling == null ? null : ModelOf(targetSibling);
+
+            rootItems.Remove(sourceModel);
+            int insertIndex = refModel == null ? rootItems.Count : ComputeInsertIndex(rootItems, refModel, insertAbove);
+            rootItems.Insert(Math.Clamp(insertIndex, 0, rootItems.Count), sourceModel);
+
+            for (int i = 0; i < rootItems.Count; i++)
+            {
+                SetModelOrder(rootItems[i], (i + 1) * 10);
+            }
+        }
+        else if (source.Tool != null)
+        {
+            string? oldParentId = source.Tool.ParentId;
+            object? refModel = targetSibling == null ? null : ModelOf(targetSibling);
+
+            // 组装目标容器列表（已排除 source 自身）
+            List<object> destItems;
+            if (destParentId == null)
+            {
+                destItems = BuildMergedRootItems();
+                destItems.Remove(source.Tool);
+            }
+            else
+            {
+                destItems = Config.Tools
+                    .Where(t => t.ParentId == destParentId)
+                    .OrderBy(t => t.Order)
+                    .Cast<object>()
+                    .ToList();
+                destItems.Remove(source.Tool);
+            }
+
+            int insertIndex = refModel == null ? destItems.Count : ComputeInsertIndex(destItems, refModel, insertAbove);
+            destItems.Insert(Math.Clamp(insertIndex, 0, destItems.Count), source.Tool);
+
+            // 回写归属与次序
+            source.Tool.ParentId = destParentId;
+            for (int i = 0; i < destItems.Count; i++)
+            {
+                SetModelOrder(destItems[i], (i + 1) * 10);
+            }
+
+            // 跨容器搬移时收紧旧容器的次序
+            if (oldParentId != destParentId)
+            {
+                if (oldParentId == null)
+                {
+                    var rootItems = BuildMergedRootItems();
+                    for (int i = 0; i < rootItems.Count; i++)
+                    {
+                        SetModelOrder(rootItems[i], (i + 1) * 10);
+                    }
+                }
+                else
+                {
+                    var oldSiblings = Config.Tools
+                        .Where(t => t.ParentId == oldParentId)
+                        .OrderBy(t => t.Order)
+                        .ToList();
+                    for (int i = 0; i < oldSiblings.Count; i++)
+                    {
+                        oldSiblings[i].Order = (i + 1) * 10;
+                    }
+                }
+            }
+        }
+
+        CompleteDragReorder(source);
+    }
+
+    /// <summary>根级混排列表：文件夹 + 未归属工具，按 Order 升序。</summary>
+    private List<object> BuildMergedRootItems()
+    {
+        var items = new List<object>();
+        items.AddRange(Config.Folders);
+        items.AddRange(Config.Tools.Where(t => string.IsNullOrEmpty(t.ParentId)));
+        items.Sort((a, b) => GetModelOrder(a).CompareTo(GetModelOrder(b)));
+        return items;
+    }
+
+    private static object? ModelOf(TreeNodeViewModel? node) =>
+        node == null ? null : node.IsFolder ? node.Folder : (object?)node.Tool;
+
+    private static int GetModelOrder(object model) => model switch
+    {
+        FolderItem folder => folder.Order,
+        ToolItem tool => tool.Order,
+        _ => int.MaxValue
+    };
+
+    private static void SetModelOrder(object model, int order)
+    {
+        switch (model)
+        {
+            case FolderItem folder:
+                folder.Order = order;
+                break;
+            case ToolItem tool:
+                tool.Order = order;
+                break;
+        }
+    }
+
+    private static int ComputeInsertIndex(List<object> list, object refModel, bool insertAbove)
+    {
+        int refIndex = list.IndexOf(refModel);
+        return refIndex < 0 ? list.Count : insertAbove ? refIndex : refIndex + 1;
+    }
+
     [RelayCommand]
-    private void SaveAndSync()
+    private async Task SaveAndSyncAsync()
     {
         try
         {
+            LivePreviewText = "⏳ 正在保存配置并同步注册表...";
+
             // 确保编辑面板的内容已回写到模型
             ToolEditor.ApplyToModel();
             FolderEditor.ApplyToModel();
+
+            // 0. 解析网站地址图标：后台线程下载 favicon 至本地缓存，绝不阻塞 UI 线程
+            try
+            {
+                string iconCacheDir = ConfigStorageService.GetIconCacheDirectory();
+                int resolved = await Task.Run(() => FaviconService.ResolveConfigIcons(Config, iconCacheDir));
+                if (resolved > 0)
+                {
+                    // 若当前选中的节点图标刚刚完成下载，刷新其图标和属性面板文本框
+                    if (SelectedNode != null)
+                    {
+                        if (SelectedNode.Tool != null)
+                        {
+                            SelectedNode.IconPath = SelectedNode.Tool.Icon;
+                            ToolEditor.Icon = SelectedNode.Tool.Icon;
+                        }
+                        else if (SelectedNode.Folder != null)
+                        {
+                            SelectedNode.IconPath = SelectedNode.Folder.Icon;
+                            FolderEditor.Icon = SelectedNode.Folder.Icon;
+                        }
+                        SelectedNode.RefreshIcon();
+                    }
+                }
+            }
+            catch
+            {
+                // 图标下载失败不阻塞主同步
+            }
 
             // 1. 持久化到本地配置文件
             ConfigStorageService.SaveConfig(Config);
@@ -594,17 +886,29 @@ public partial class MainViewModel : ObservableObject
             string? wtPath = CliDiscoveryService.DetectWindowsTerminalPath();
             string backupDir = ConfigStorageService.GetBackupDirectory();
 
-            // 3. 执行注册表原子 Diff & Apply
-            var result = _syncEngine.Sync(Config, wtPath, backupDir);
+            // 3. 执行注册表原子 Diff & Apply（附带程序基目录，便于写入默认图标）
+            var result = await Task.Run(() => _syncEngine.Sync(Config, wtPath, backupDir, AppDomain.CurrentDomain.BaseDirectory));
 
             if (result.Success)
             {
                 UpdateLivePreview();
-                LivePreviewText = $"✅ [同步成功] 生效 {result.AddedOrUpdatedCount} 项，清理 {result.DeletedCount} 项 - {DateTime.Now:HH:mm:ss}";
-                ShowInfoBar(
-                    "保存并同步成功",
-                    $"已成功写入注册表！生效项: {result.AddedOrUpdatedCount}，清理旧项: {result.DeletedCount}。现在可在任意目录空白处右键查看效果！",
-                    InfoBarSeverity.Success);
+                if (result.Warnings.Count > 0)
+                {
+                    string warnSummary = string.Join("；", result.Warnings);
+                    LivePreviewText = $"⚠️ [同步完成有警告] 生效 {result.AddedOrUpdatedCount} 项，跳过 {result.Warnings.Count} 项 - {DateTime.Now:HH:mm:ss}";
+                    ShowInfoBar(
+                        "同步完成（部分项已跳过）",
+                        $"已写入注册表（生效 {result.AddedOrUpdatedCount} 项，清理 {result.DeletedCount} 项）。以下项因配置不完整已跳过：{warnSummary}",
+                        InfoBarSeverity.Warning);
+                }
+                else
+                {
+                    LivePreviewText = $"✅ [同步成功] 生效 {result.AddedOrUpdatedCount} 项，清理 {result.DeletedCount} 项 - {DateTime.Now:HH:mm:ss}";
+                    ShowInfoBar(
+                        "保存并同步成功",
+                        $"已成功写入注册表！生效项: {result.AddedOrUpdatedCount}，清理旧项: {result.DeletedCount}。现在可在任意目录空白处右键查看效果！",
+                        InfoBarSeverity.Success);
+                }
             }
             else
             {
@@ -634,7 +938,7 @@ public partial class MainViewModel : ObservableObject
         }
     }
 
-    private void UpdateLivePreview()
+    public void UpdateLivePreview()
     {
         int folderCount = RootNodes.Count(n => n.IsFolder);
         int directToolCount = RootNodes.Count(n => !n.IsFolder);

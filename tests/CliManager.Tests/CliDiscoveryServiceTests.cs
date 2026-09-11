@@ -1,3 +1,4 @@
+using System.IO;
 using CliManager.Core.Detection;
 
 namespace CliManager.Tests;
@@ -33,6 +34,41 @@ public class CliDiscoveryServiceTests
         if (wtPath != null)
         {
             Assert.Contains("wt.exe", wtPath, StringComparison.OrdinalIgnoreCase);
+        }
+    }
+
+    [Fact]
+    public void DetectNodeInstallDirectory_ReturnsNullOrExistingDirectory()
+    {
+        string? nodeDir = CliDiscoveryService.DetectNodeInstallDirectory();
+        // 未安装 Node 时返回 null；已安装（PATH 或注册表）时必须返回真实存在的目录
+        if (nodeDir != null)
+        {
+            Assert.True(Directory.Exists(nodeDir));
+        }
+    }
+
+    [Fact]
+    public void DiscoverInstalledTools_IncludesAllToolsFromNodeDirectory()
+    {
+        // 在临时目录模拟 Node.js 安装目录：.cmd 工具（无论是否 AI CLI）都应被扫描
+        string tempDir = Path.Combine(Path.GetTempPath(), $"climgr-test-node-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(tempDir);
+        try
+        {
+            File.WriteAllText(Path.Combine(tempDir, "zz-fake-cli.cmd"), "@echo off\r\n");
+            File.WriteAllText(Path.Combine(tempDir, "zz-another-tool.bat"), "@echo off\r\n");
+            File.WriteAllText(Path.Combine(tempDir, "zz-not-a-tool.txt"), "ignored");
+
+            var tools = CliDiscoveryService.ScanDirectoryForExecutables(tempDir, "node");
+
+            Assert.Contains(tools, t => t.ExecutablePath.EndsWith("zz-fake-cli.cmd", StringComparison.OrdinalIgnoreCase));
+            Assert.Contains(tools, t => t.ExecutablePath.EndsWith("zz-another-tool.bat", StringComparison.OrdinalIgnoreCase));
+            Assert.DoesNotContain(tools, t => t.ExecutablePath.EndsWith(".txt", StringComparison.OrdinalIgnoreCase));
+        }
+        finally
+        {
+            Directory.Delete(tempDir, recursive: true);
         }
     }
 
